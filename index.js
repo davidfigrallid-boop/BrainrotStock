@@ -209,39 +209,36 @@ function buildEmbed(viewMode = 'rarity') {
     const embed = new EmbedBuilder()
         .setColor(0xFFE600)
         .setImage('attachment://Banner.png')
+        .setThumbnail('attachment://Banner.png')
         .setTimestamp()
-        .setFooter({ text: `Auto-refresh: 5 min | Prix en ${crypto}` });
+        .setFooter({ 
+            text: `Auto-refresh: 5 min | Prix en ${crypto}`,
+            iconURL: 'attachment://Banner.png'
+        });
 
     if (sorted.length === 0) {
-        embed.setDescription('\n\n*Aucun brainrot disponible*');
+        embed.setDescription('*Aucun brainrot disponible*');
         return embed;
     }
-
-    // Ajouter un gap après la banner
-    let description = '\n\n';
 
     switch (viewMode) {
         case 'rarity':
             buildRarityView(embed, sorted, crypto);
             break;
         case 'price_eur':
-            description += '**💰 Trié par Prix EUR**\n\n';
-            embed.setDescription(description);
+            embed.setDescription('**💰 Trié par Prix EUR**\n');
             buildPriceEURView(embed, sorted, crypto);
             break;
         case 'income':
-            description += '**📈 Trié par Income**\n\n';
-            embed.setDescription(description);
+            embed.setDescription('**📈 Trié par Income**\n');
             buildIncomeView(embed, sorted, crypto);
             break;
         case 'mutations':
-            description += '**🧬 Groupé par Mutation**\n\n';
-            embed.setDescription(description);
+            embed.setDescription('**🧬 Groupé par Mutation**\n');
             buildMutationsView(embed, sorted, crypto);
             break;
         case 'traits':
-            description += '**✨ Groupé par Trait**\n\n';
-            embed.setDescription(description);
+            embed.setDescription('**✨ Groupé par Trait**\n');
             buildTraitsView(embed, sorted, crypto);
             break;
     }
@@ -258,11 +255,13 @@ function buildRarityView(embed, sorted, crypto) {
         groupedByRarity[br.rarity].push(br);
     });
 
+    embed.setDescription('\u200B'); // Caractère invisible pour éviter le texte au-dessus
+
     Object.keys(groupedByRarity).forEach(rarity => {
         const items = groupedByRarity[rarity];
         const colorEmoji = rarityColors[rarity] || '📦';
         
-        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
             name: `${colorEmoji} ${rarity}`,
@@ -279,7 +278,7 @@ function buildPriceEURView(embed, sorted, crypto) {
         return priceB - priceA;
     });
 
-    const itemsList = sortedByPrice.map(br => formatBrainrotLine(br, crypto)).join('\n');
+    const itemsList = sortedByPrice.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
     const currentDesc = embed.data.description || '';
     
     embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
@@ -292,7 +291,7 @@ function buildIncomeView(embed, sorted, crypto) {
         return incomeB - incomeA;
     });
 
-    const itemsList = sortedByIncome.map(br => formatBrainrotLine(br, crypto)).join('\n');
+    const itemsList = sortedByIncome.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
     const currentDesc = embed.data.description || '';
     
     embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
@@ -311,7 +310,7 @@ function buildMutationsView(embed, sorted, crypto) {
 
     Object.keys(groupedByMutation).sort().forEach(mutation => {
         const items = groupedByMutation[mutation];
-        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
             name: `🧬 ${mutation}`,
@@ -343,7 +342,7 @@ function buildTraitsView(embed, sorted, crypto) {
 
     Object.keys(groupedByTrait).sort().forEach(trait => {
         const items = groupedByTrait[trait];
-        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
             name: `✨ ${trait}`,
@@ -353,14 +352,14 @@ function buildTraitsView(embed, sorted, crypto) {
     });
 }
 
-function formatBrainrotLine(br, crypto) {
+function formatBrainrotLine(br, crypto, showTraits = false) {
     const cryptoPrice = br.priceCrypto && br.priceCrypto[crypto] 
         ? formatCryptoPrice(br.priceCrypto[crypto])
         : 'N/A';
     
     const valeurDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
     const mutationDisplay = br.mutation ? ` [${br.mutation}]` : '';
-    const traitsDisplay = br.traits && br.traits.length > 0 
+    const traitsDisplay = showTraits && br.traits && br.traits.length > 0 
         ? ` {${br.traits.join(', ')}}` 
         : '';
     
@@ -569,8 +568,20 @@ async function handleAddBrainrot(interaction) {
 
     await interaction.deferReply({ flags: 64 });
 
-    // Parser les traits (séparés par des virgules)
-    const traitsArray = traits ? traits.split(',').map(t => t.trim()) : [];
+    // Parser et valider les traits
+    let traitsArray = [];
+    if (traits) {
+        traitsArray = traits.split(',').map(t => t.trim());
+        
+        // Vérifier que tous les traits sont valides
+        const invalidTraits = traitsArray.filter(t => !TRAITS.includes(t));
+        if (invalidTraits.length > 0) {
+            return interaction.editReply(
+                `❌ Traits invalides: ${invalidTraits.join(', ')}\n` +
+                `Traits disponibles: ${TRAITS.join(', ')}`
+            );
+        }
+    }
     
     // Parser le prix EUR
     const priceEURParsed = parsePrice(priceEUR);
