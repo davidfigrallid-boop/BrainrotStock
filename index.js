@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
 const { convertEURToAllCryptos, getSupportedCryptos, updateAllBrainrotsPrices } = require('./cryptoConverter');
@@ -33,17 +33,34 @@ const rarityOrder = {
     'OG': 8
 };
 
-// Couleurs des raretés (pour l'embed)
+// Couleurs des raretés (carrés colorés Unicode)
 const rarityColors = {
-    'Common': 0xCCCCCC,
-    'Rare': 0x3466F6,
-    'Epic': 0xA716E7,
-    'Legendary': 0xECA741,
-    'Mythic': 0xFC6565,
-    'Brainrot God': 0xFAFC65,
-    'Secret': 0x00FFFF,
-    'OG': 0xFF1493
+    'Common': '⬜',
+    'Rare': '🟦',
+    'Epic': '🟪',
+    'Legendary': '🟧',
+    'Mythic': '🟥',
+    'Brainrot God': '🌈',
+    'Secret': '⬛',
+    'OG': '⭐'
 };
+
+// Mutations prédéfinies (obligatoires)
+const MUTATIONS = [
+    'Default', 'Gold', 'Diamond', 'Rainbow', 'Lava', 
+    'Bloodrot', 'Celestial', 'Candy', 'Galaxy', 'Yin Yang'
+];
+
+// Traits prédéfinis (obligatoires)
+const TRAITS = [
+    'Bloodmoon', 'Taco', 'Galactic', 'Explosive', 'Bubblegum',
+    'Zombie', 'Glitched', 'Claws', 'Fireworks', 'Nyan',
+    'Fire', 'Rain', 'Snowy', 'Cometstruck', 'Disco',
+    'Water', 'TenB', 'Matteo Hat', 'Brazil Flag', 'Sleep',
+    'UFO', 'Mygame43', 'Spider', 'Strawberry', 'Extinct',
+    'Paint', 'Sombrero', 'Tie', 'Wizard Hat', 'Indonesia Flag',
+    'Meowl', 'Pumpkin', 'R.I.P.'
+];
 
 // ═══════════════════════════════════════════════════════════
 // UTILITAIRES PRIX ABRÉGÉS
@@ -166,7 +183,8 @@ function aggregateBrainrots(brainrotsList) {
             item.name === br.name &&
             item.rarity === br.rarity &&
             item.compte === br.compte &&
-            JSON.stringify(item.mutations) === JSON.stringify(br.mutations)
+            item.mutation === br.mutation &&
+            JSON.stringify(item.traits) === JSON.stringify(br.traits)
         );
         
         if (existing) {
@@ -183,23 +201,55 @@ function aggregateBrainrots(brainrotsList) {
 // CONSTRUCTION DE L'EMBED
 // ═══════════════════════════════════════════════════════════
 
-function buildEmbed() {
+function buildEmbed(viewMode = 'rarity') {
     const aggregated = aggregateBrainrots(brainrots);
     const sorted = sortBrainrots(aggregated);
     const crypto = config.defaultCrypto;
     
     const embed = new EmbedBuilder()
-        .setTitle('🧠 Liste des Brainrots')
-        .setColor('#00D9FF')
+        .setColor('#ffe600ff')
+        .setImage('attachment://Banner.png')
         .setTimestamp()
         .setFooter({ text: `Auto-refresh: 5 min | Prix en ${crypto}` });
 
     if (sorted.length === 0) {
-        embed.setDescription('*Aucun brainrot disponible*');
+        embed.setDescription('\n\n*Aucun brainrot disponible*');
         return embed;
     }
 
-    // Grouper par rareté
+    // Ajouter un gap après la banner
+    let description = '\n\n';
+
+    switch (viewMode) {
+        case 'rarity':
+            buildRarityView(embed, sorted, crypto);
+            break;
+        case 'price_eur':
+            description += '**💰 Trié par Prix EUR**\n\n';
+            embed.setDescription(description);
+            buildPriceEURView(embed, sorted, crypto);
+            break;
+        case 'income':
+            description += '**📈 Trié par Income**\n\n';
+            embed.setDescription(description);
+            buildIncomeView(embed, sorted, crypto);
+            break;
+        case 'mutations':
+            description += '**🧬 Groupé par Mutation**\n\n';
+            embed.setDescription(description);
+            buildMutationsView(embed, sorted, crypto);
+            break;
+        case 'traits':
+            description += '**✨ Groupé par Trait**\n\n';
+            embed.setDescription(description);
+            buildTraitsView(embed, sorted, crypto);
+            break;
+    }
+
+    return embed;
+}
+
+function buildRarityView(embed, sorted, crypto) {
     const groupedByRarity = {};
     sorted.forEach(br => {
         if (!groupedByRarity[br.rarity]) {
@@ -208,39 +258,155 @@ function buildEmbed() {
         groupedByRarity[br.rarity].push(br);
     });
 
-    // Construire les fields par rareté
     Object.keys(groupedByRarity).forEach(rarity => {
         const items = groupedByRarity[rarity];
-        const itemsList = items.map(br => {
-            const cryptoPrice = br.priceCrypto && br.priceCrypto[crypto] 
-                ? formatCryptoPrice(br.priceCrypto[crypto])
-                : 'N/A';
-            
-            const valeurDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
-            const mutationsDisplay = br.mutations && br.mutations.length > 0 
-                ? ` [${br.mutations.join(', ')}]` 
-                : '';
-            
-            return `**${br.name}${valeurDisplay}${mutationsDisplay}**\n` +
-                   `├ Income: ${formatPrice(parsePrice(br.incomeRate))}/s\n` +
-                   `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n`;
-        }).join('\n');
+        const colorEmoji = rarityColors[rarity] || '📦';
+        
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
 
         embed.addFields({
-            name: `${rarity}`,
+            name: `${colorEmoji} ${rarity}`,
             value: itemsList || '*Aucun*',
             inline: false
         });
     });
+}
 
-    return embed;
+function buildPriceEURView(embed, sorted, crypto) {
+    const sortedByPrice = [...sorted].sort((a, b) => {
+        const priceA = parsePrice(a.priceEUR);
+        const priceB = parsePrice(b.priceEUR);
+        return priceB - priceA;
+    });
+
+    const itemsList = sortedByPrice.map(br => formatBrainrotLine(br, crypto)).join('\n');
+    const currentDesc = embed.data.description || '';
+    
+    embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
+}
+
+function buildIncomeView(embed, sorted, crypto) {
+    const sortedByIncome = [...sorted].sort((a, b) => {
+        const incomeA = parsePrice(a.incomeRate);
+        const incomeB = parsePrice(b.incomeRate);
+        return incomeB - incomeA;
+    });
+
+    const itemsList = sortedByIncome.map(br => formatBrainrotLine(br, crypto)).join('\n');
+    const currentDesc = embed.data.description || '';
+    
+    embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
+}
+
+function buildMutationsView(embed, sorted, crypto) {
+    const groupedByMutation = {};
+    
+    sorted.forEach(br => {
+        const mutation = br.mutation || 'Sans mutation';
+        if (!groupedByMutation[mutation]) {
+            groupedByMutation[mutation] = [];
+        }
+        groupedByMutation[mutation].push(br);
+    });
+
+    Object.keys(groupedByMutation).sort().forEach(mutation => {
+        const items = groupedByMutation[mutation];
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
+
+        embed.addFields({
+            name: `🧬 ${mutation}`,
+            value: itemsList || '*Aucun*',
+            inline: false
+        });
+    });
+}
+
+function buildTraitsView(embed, sorted, crypto) {
+    const groupedByTrait = {};
+    
+    sorted.forEach(br => {
+        const traits = br.traits || [];
+        if (traits.length === 0) {
+            if (!groupedByTrait['Sans trait']) {
+                groupedByTrait['Sans trait'] = [];
+            }
+            groupedByTrait['Sans trait'].push(br);
+        } else {
+            traits.forEach(trait => {
+                if (!groupedByTrait[trait]) {
+                    groupedByTrait[trait] = [];
+                }
+                groupedByTrait[trait].push(br);
+            });
+        }
+    });
+
+    Object.keys(groupedByTrait).sort().forEach(trait => {
+        const items = groupedByTrait[trait];
+        const itemsList = items.map(br => formatBrainrotLine(br, crypto)).join('\n');
+
+        embed.addFields({
+            name: `✨ ${trait}`,
+            value: itemsList || '*Aucun*',
+            inline: false
+        });
+    });
+}
+
+function formatBrainrotLine(br, crypto) {
+    const cryptoPrice = br.priceCrypto && br.priceCrypto[crypto] 
+        ? formatCryptoPrice(br.priceCrypto[crypto])
+        : 'N/A';
+    
+    const valeurDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
+    const mutationDisplay = br.mutation ? ` [${br.mutation}]` : '';
+    const traitsDisplay = br.traits && br.traits.length > 0 
+        ? ` {${br.traits.join(', ')}}` 
+        : '';
+    
+    return `**${br.name}${valeurDisplay}${mutationDisplay}${traitsDisplay}**\n` +
+           `├ Income: ${formatPrice(parsePrice(br.incomeRate))}/s\n` +
+           `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n`;
+}
+
+function createNavigationButtons() {
+    const row = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('view_rarity')
+                .setLabel('Rareté')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🎨'),
+            new ButtonBuilder()
+                .setCustomId('view_price_eur')
+                .setLabel('Prix EUR')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('💰'),
+            new ButtonBuilder()
+                .setCustomId('view_income')
+                .setLabel('Income')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📈'),
+            new ButtonBuilder()
+                .setCustomId('view_mutations')
+                .setLabel('Mutations')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🧬'),
+            new ButtonBuilder()
+                .setCustomId('view_traits')
+                .setLabel('Traits')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('✨')
+        );
+    
+    return row;
 }
 
 // ═══════════════════════════════════════════════════════════
 // MISE À JOUR DE L'EMBED
 // ═══════════════════════════════════════════════════════════
 
-async function updateEmbed(client) {
+async function updateEmbed(client, viewMode = 'rarity') {
     if (!config.listMessageId || !config.listChannelId) {
         console.log('⚠️ Aucun message à mettre à jour');
         return;
@@ -249,17 +415,22 @@ async function updateEmbed(client) {
     try {
         const channel = await client.channels.fetch(config.listChannelId);
         const message = await channel.messages.fetch(config.listMessageId);
-        const embed = buildEmbed();
-        await message.edit({ embeds: [embed] });
+        const embed = buildEmbed(viewMode);
+        const buttons = createNavigationButtons();
+        
+        // Récupérer la banner depuis les attachments existants
+        const bannerAttachment = message.attachments.first();
+        const files = bannerAttachment ? [bannerAttachment] : [];
+        
+        await message.edit({ embeds: [embed], components: [buttons], files });
         console.log('🔄 Embed mis à jour');
     } catch (error) {
         console.error('❌ Erreur lors de la mise à jour de l\'embed:', error);
-        config.listMessageId = null;
-        config.listChannelId = null;
+        config.listMessageId = null
+onfig.listChannelId = null;
         await saveConfig();
     }
 }
-
 // ═══════════════════════════════════════════════════════════
 // CLIENT DISCORD
 // ═══════════════════════════════════════════════════════════
@@ -285,6 +456,24 @@ client.once('ready', async () => {
 // ═══════════════════════════════════════════════════════════
 
 client.on('interactionCreate', async interaction => {
+    // Gestion des boutons
+    if (interaction.isButton()) {
+        try {
+            const viewMode = interaction.customId.replace('view_', '');
+            const embed = buildEmbed(viewMode);
+            const buttons = createNavigationButtons();
+            
+            // Garder la banner existante
+            const bannerAttachment = interaction.message.attachments.first();
+            const files = bannerAttachment ? [bannerAttachment] : [];
+            
+            await interaction.update({ embeds: [embed], components: [buttons], files });
+        } catch (error) {
+            console.error('❌ Erreur bouton:', error);
+        }
+        return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName } = interaction;
@@ -331,8 +520,26 @@ client.on('interactionCreate', async interaction => {
 // ═══════════════════════════════════════════════════════════
 
 async function handleList(interaction) {
-    const embed = buildEmbed();
-    const message = await interaction.reply({ embeds: [embed], fetchReply: true });
+    const embed = buildEmbed('rarity');
+    const buttons = createNavigationButtons();
+    
+    // Charger la banner
+    const bannerPath = path.join(__dirname, 'Banner.png');
+    let files = [];
+    
+    try {
+        await fs.access(bannerPath);
+        files = [{ attachment: bannerPath, name: 'Banner.png' }];
+    } catch (error) {
+        console.log('⚠️ Banner.png introuvable, embed sans image');
+    }
+    
+    const message = await interaction.reply({ 
+        embeds: [embed], 
+        components: [buttons], 
+        files,
+        fetchReply: true 
+    });
     
     config.listMessageId = message.id;
     config.listChannelId = message.channelId;
@@ -354,15 +561,16 @@ async function handleAddBrainrot(interaction) {
     const name = interaction.options.getString('name');
     const rarity = interaction.options.getString('rarity');
     const incomeRate = interaction.options.getString('income_rate');
-    const mutations = interaction.options.getString('mutations');
+    const mutation = interaction.options.getString('mutation');
+    const traits = interaction.options.getString('traits');
     const priceEUR = interaction.options.getString('price_eur');
     const compte = interaction.options.getString('compte');
     const valeur = interaction.options.getInteger('valeur') || 1;
 
     await interaction.deferReply({ ephemeral: true });
 
-    // Parser les mutations (séparées par des virgules)
-    const mutationArray = mutations ? mutations.split(',').map(m => m.trim()) : [];
+    // Parser les traits (séparés par des virgules)
+    const traitsArray = traits ? traits.split(',').map(t => t.trim()) : [];
     
     // Parser le prix EUR
     const priceEURParsed = parsePrice(priceEUR);
@@ -378,7 +586,8 @@ async function handleAddBrainrot(interaction) {
         br.name === name &&
         br.rarity === rarity &&
         br.compte === compte &&
-        JSON.stringify(br.mutations) === JSON.stringify(mutationArray)
+        br.mutation === mutation &&
+        JSON.stringify(br.traits) === JSON.stringify(traitsArray)
     );
 
     if (existing) {
@@ -396,7 +605,8 @@ async function handleAddBrainrot(interaction) {
         name,
         rarity,
         incomeRate,
-        mutations: mutationArray,
+        mutation,
+        traits: traitsArray,
         priceEUR: priceEURParsed,
         priceCrypto,
         compte: compte || null,
@@ -407,11 +617,12 @@ async function handleAddBrainrot(interaction) {
     await saveBrainrots();
     await updateEmbed(client);
 
-    const mutDisplay = mutationArray.length > 0 ? ` [${mutationArray.join(', ')}]` : '';
+    const mutDisplay = mutation ? ` [${mutation}]` : '';
+    const traitsDisplay = traitsArray.length > 0 ? ` {${traitsArray.join(', ')}}` : '';
     const valDisplay = valeur > 1 ? ` x${valeur}` : '';
     
     await interaction.editReply(
-        `✅ **${name}${valDisplay}${mutDisplay}** ajouté !\n` +
+        `✅ **${name}${valDisplay}${mutDisplay}${traitsDisplay}** ajouté !\n` +
         `Rareté: ${rarity}\n` +
         `Prix: €${formatPrice(priceEURParsed)}`
     );
@@ -419,17 +630,19 @@ async function handleAddBrainrot(interaction) {
 
 async function handleRemoveBrainrot(interaction) {
     const name = interaction.options.getString('name');
-    const mutations = interaction.options.getString('mutations');
+    const mutation = interaction.options.getString('mutation');
+    const traits = interaction.options.getString('traits');
     
-    const mutationArray = mutations ? mutations.split(',').map(m => m.trim()) : [];
+    const traitsArray = traits ? traits.split(',').map(t => t.trim()) : null;
     
     // Trouver le brainrot correspondant
     const index = brainrots.findIndex(br => {
         const nameMatch = br.name.toLowerCase() === name.toLowerCase();
-        const mutMatch = mutations 
-            ? JSON.stringify(br.mutations) === JSON.stringify(mutationArray)
+        const mutMatch = mutation ? br.mutation === mutation : true;
+        const traitsMatch = traitsArray 
+            ? JSON.stringify(br.traits) === JSON.stringify(traitsArray)
             : true;
-        return nameMatch && mutMatch;
+        return nameMatch && mutMatch && traitsMatch;
     });
     
     if (index === -1) {
@@ -443,33 +656,31 @@ async function handleRemoveBrainrot(interaction) {
     await saveBrainrots();
     await updateEmbed(client);
 
-    const mutDisplay = removed.mutations && removed.mutations.length > 0 
-        ? ` [${removed.mutations.join(', ')}]` 
+    const mutDisplay = removed.mutation ? ` [${removed.mutation}]` : '';
+    const traitsDisplay = removed.traits && removed.traits.length > 0 
+        ? ` {${removed.traits.join(', ')}}` 
         : '';
     
     await interaction.reply({ 
-        content: `✅ **${removed.name}${mutDisplay}** a été supprimé !`, 
+        content: `✅ **${removed.name}${mutDisplay}${traitsDisplay}** a été supprimé !`, 
         ephemeral: true 
     });
 }
 
 async function handleUpdateBrainrot(interaction) {
     const name = interaction.options.getString('name');
-    const mutations = interaction.options.getString('mutations_filter');
+    const mutationFilter = interaction.options.getString('mutation_filter');
     const incomeRate = interaction.options.getString('income_rate');
-    const newMutations = interaction.options.getString('new_mutations');
+    const newMutation = interaction.options.getString('new_mutation');
+    const newTraits = interaction.options.getString('new_traits');
     const priceEUR = interaction.options.getString('price_eur');
     const compte = interaction.options.getString('compte');
     const valeur = interaction.options.getInteger('valeur');
-
-    const mutationArray = mutations ? mutations.split(',').map(m => m.trim()) : null;
     
     // Trouver le brainrot
     const brainrot = brainrots.find(br => {
         const nameMatch = br.name.toLowerCase() === name.toLowerCase();
-        const mutMatch = mutationArray 
-            ? JSON.stringify(br.mutations) === JSON.stringify(mutationArray)
-            : true;
+        const mutMatch = mutationFilter ? br.mutation === mutationFilter : true;
         return nameMatch && mutMatch;
     });
     
@@ -484,8 +695,9 @@ async function handleUpdateBrainrot(interaction) {
 
     // Mettre à jour les valeurs
     if (incomeRate !== null) brainrot.incomeRate = incomeRate;
-    if (newMutations !== null) {
-        brainrot.mutations = newMutations.split(',').map(m => m.trim());
+    if (newMutation !== null) brainrot.mutation = newMutation;
+    if (newTraits !== null) {
+        brainrot.traits = newTraits.split(',').map(t => t.trim());
     }
     if (compte !== null) brainrot.compte = compte;
     if (valeur !== null) brainrot.valeur = valeur;
@@ -601,6 +813,11 @@ const commands = [
                     { name: 'OG', value: 'OG' }
                 ))
         .addStringOption(option =>
+            option.setName('mutation')
+                .setDescription('Mutation (obligatoire)')
+                .setRequired(true)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+        .addStringOption(option =>
             option.setName('income_rate')
                 .setDescription('Taux de revenu par seconde (ex: 100, 1k, 1.5M, 2B)')
                 .setRequired(true))
@@ -609,8 +826,8 @@ const commands = [
                 .setDescription('Prix en euros (ex: 50, 1k, 1.5M, 2B)')
                 .setRequired(true))
         .addStringOption(option =>
-            option.setName('mutations')
-                .setDescription('Mutations séparées par des virgules (ex: Fire, Ice)')
+            option.setName('traits')
+                .setDescription('Traits séparés par des virgules (ex: Fire, Taco, Zombie)')
                 .setRequired(false))
         .addStringOption(option =>
             option.setName('compte')
@@ -631,8 +848,13 @@ const commands = [
                 .setDescription('Nom du brainrot à supprimer')
                 .setRequired(true))
         .addStringOption(option =>
-            option.setName('mutations')
-                .setDescription('Mutations pour identifier le brainrot (si plusieurs avec même nom)')
+            option.setName('mutation')
+                .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
+                .setRequired(false)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+        .addStringOption(option =>
+            option.setName('traits')
+                .setDescription('Traits pour identifier le brainrot (ex: Fire, Taco)')
                 .setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     
@@ -644,16 +866,22 @@ const commands = [
                 .setDescription('Nom du brainrot à modifier')
                 .setRequired(true))
         .addStringOption(option =>
-            option.setName('mutations_filter')
-                .setDescription('Mutations pour identifier le brainrot (si plusieurs avec même nom)')
-                .setRequired(false))
+            option.setName('mutation_filter')
+                .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
+                .setRequired(false)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
         .addStringOption(option =>
             option.setName('income_rate')
                 .setDescription('Nouveau taux de revenu par seconde (ex: 1k, 1.5M)')
                 .setRequired(false))
         .addStringOption(option =>
-            option.setName('new_mutations')
-                .setDescription('Nouvelles mutations (remplace les anciennes)')
+            option.setName('new_mutation')
+                .setDescription('Nouvelle mutation')
+                .setRequired(false)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+        .addStringOption(option =>
+            option.setName('new_traits')
+                .setDescription('Nouveaux traits (remplace les anciens, ex: Fire, Taco)')
                 .setRequired(false))
         .addStringOption(option =>
             option.setName('price_eur')
