@@ -19,6 +19,13 @@ const SUPPORTED_CRYPTOS = {
     'SHIB': 'shiba-inu'
 };
 
+// Cache pour éviter le rate limiting
+const priceCache = {
+    data: {},
+    lastUpdate: 0,
+    CACHE_DURATION: 5 * 60 * 1000 // 5 minutes
+};
+
 /**
  * Retourne la liste des cryptos supportées
  */
@@ -27,20 +34,21 @@ function getSupportedCryptos() {
 }
 
 /**
- * Récupère le prix actuel d'une crypto en EUR depuis CoinGecko
- * @param {string} cryptoSymbol - Symbole de la crypto (ex: 'BTC', 'ETH')
- * @returns {Promise<number|null>} - Prix en EUR ou null si erreur
+ * Récupère TOUS les prix crypto en une seule requête (évite rate limiting)
+ * @returns {Promise<Object>} - Objet avec tous les prix { BTC: 45000, ETH: 3000, ... }
  */
-async function getCryptoPrice(cryptoSymbol) {
-    const cryptoId = SUPPORTED_CRYPTOS[cryptoSymbol.toUpperCase()];
-    
-    if (!cryptoId) {
-        console.error(`❌ Crypto non supportée: ${cryptoSymbol}`);
-        return null;
+async function getAllCryptoPrices() {
+    // Vérifier le cache
+    const now = Date.now();
+    if (priceCache.data && Object.keys(priceCache.data).length > 0 && 
+        (now - priceCache.lastUpdate) < priceCache.CACHE_DURATION) {
+        console.log('💾 Utilisation du cache crypto');
+        return priceCache.data;
     }
 
     return new Promise((resolve) => {
-        const url = `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoId}&vs_currencies=eur`;
+        const allIds = Object.values(SUPPORTED_CRYPTOS).join(',');
+        const url = `https://api.coingecko.com/api/v3/simple/price?ids=${allIds}&vs_currencies=eur`;
         
         https.get(url, { 
             headers: { 'User-Agent': 'BrainrotBot/1.0' }
@@ -54,23 +62,31 @@ async function getCryptoPrice(cryptoSymbol) {
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
+                    const prices = {};
                     
-                    if (json[cryptoId] && json[cryptoId].eur) {
-                        const price = json[cryptoId].eur;
-                        console.log(`✅ Prix ${cryptoSymbol}: €${price}`);
-                        resolve(price);
-                    } else {
-                        console.error(`❌ Prix non trouvé pour ${cryptoSymbol}`);
-                        resolve(null);
+                    // Convertir les IDs en symboles
+                    for (const [symbol, id] of Object.entries(SUPPORTED_CRYPTOS)) {
+                        if (json[id] && json[id].eur) {
+                            prices[symbol] = json[id].eur;
+                        } else {
+                            prices[symbol] = null;
+                        }
                     }
+                    
+                    // Mettre à jour le cache
+                    priceCache.data = prices;
+                    priceCache.lastUpdate = Date.now();
+                    
+                    console.log(`✅ Prix crypto récupérés (${Object.keys(prices).length} cryptos)`);
+                    resolve(prices);
                 } catch (error) {
-                    console.error(`❌ Erreur parsing JSON pour ${cryptoSymbol}:`, error.message);
-                    resolve(null);
+                    console.error('❌ Erreur parsing JSON:', error.message);
+                    resolve(priceCache.data || {}); // Retourner le cache même expiré
                 }
             });
         }).on('error', (error) => {
-            console.error(`❌ Erreur API CoinGecko pour ${cryptoSymbol}:`, error.message);
-            resolve(null);
+            console.error('❌ Erreur API CoinGecko:', error.message);
+            resolve(priceCache.data || {}); // Retourner le cache même expiré
         });
     });
 }
@@ -82,18 +98,17 @@ async function getCryptoPrice(cryptoSymbol) {
  * @returns {Promise<Object>} - Objet avec les montants convertis { BTC: 0.00123, ETH: 0.045, ... }
  */
 async function convertEURToCrypto(amountEUR, cryptos = ['BTC']) {
+    const allPrices = await getAllCryptoPrices();
     const result = {};
     
-    // Convertir toutes les cryptos demandées
     for (const crypto of cryptos) {
         const cryptoUpper = crypto.toUpperCase();
-        const eurPrice = await getCryptoPrice(cryptoUpper);
+        const eurPrice = allPrices[cryptoUpper];
         
         if (eurPrice && eurPrice > 0) {
-            // Calculer combien de crypto pour X euros
             result[cryptoUpper] = amountEUR / eurPrice;
         } else {
-            result[cryptoUpper] = 'N/A';
+            result[cryptoUpper] = null;
         }
     }
     
@@ -110,33 +125,33 @@ async function convertEURToAllCryptos(amountEUR) {
 }
 
 /**
- * Met à jour les prix crypto d'un brainrot existant
- * @param {Object} brainrot - Objet brainrot avec au moins { priceEUR }
- * @param {string[]} cryptos - Liste des cryptos à mettre à jour
- * @returns {Promise<Object>} - Brainrot mis à jour
+ * Met à jour les prix crypto de tous les brainrots
+ * @param {Array} brainrots - Liste des brainrots
+ * @returns {Promise<Array>} - Brainrots mis à jour
  */
-async function updateBrainrotCryptoPrices(brainrot, cryptos = null) {
-    if (!brainrot.priceEUR) {
-        console.error('❌ Brainrot sans priceEUR');
-        return brainrot;
+async function updateAllBrainrotsPrices(brainrots) {
+    const allPrices = await getAllCryptoPrices();
+    
+    for (const brainrot of brainrots) {
+        if (!brainrot.priceEUR) continue;
+        
+        brainrot.priceCrypto = {};
+        for (const [symbol, eurPrice] of Object.entries(allPrices)) {
+            if (eurPrice && eurPrice > 0) {
+                brainrot.priceCrypto[symbol] = brainrot.priceEUR / eurPrice;
+            } else {
+                brainrot.priceCrypto[symbol] = null;
+            }
+        }
     }
     
-    const cryptosToUpdate = cryptos || getSupportedCryptos();
-    const newPrices = await convertEURToCrypto(brainrot.priceEUR, cryptosToUpdate);
-    
-    // Fusionner avec les prix existants
-    brainrot.priceCrypto = {
-        ...brainrot.priceCrypto,
-        ...newPrices
-    };
-    
-    return brainrot;
+    return brainrots;
 }
 
 module.exports = {
     getSupportedCryptos,
-    getCryptoPrice,
+    getAllCryptoPrices,
     convertEURToCrypto,
     convertEURToAllCryptos,
-    updateBrainrotCryptoPrices
+    updateAllBrainrotsPrices
 };
