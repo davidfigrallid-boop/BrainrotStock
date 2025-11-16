@@ -255,7 +255,7 @@ function buildRarityView(embed, sorted, crypto) {
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `${colorEmoji} ${rarity}`,
+            name: `\n# ${colorEmoji} ${rarity}\n`,
             value: itemsList || '*Aucun*',
             inline: false
         });
@@ -302,7 +302,7 @@ function buildMutationsView(embed, sorted, crypto) {
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `🧬 ${mutation}`,
+            name: `\n# 🧬 ${mutation}\n`,
             value: itemsList || '*Aucun*',
             inline: false
         });
@@ -334,7 +334,7 @@ function buildTraitsView(embed, sorted, crypto) {
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `✨ ${trait}`,
+            name: `\n# ✨ ${trait}\n`,
             value: itemsList || '*Aucun*',
             inline: false
         });
