@@ -426,8 +426,8 @@ async function updateEmbed(client, viewMode = 'rarity') {
         console.log('🔄 Embed mis à jour');
     } catch (error) {
         console.error('❌ Erreur lors de la mise à jour de l\'embed:', error);
-        config.listMessageId = null
-onfig.listChannelId = null;
+        config.listMessageId = null;
+        config.listChannelId = null;
         await saveConfig();
     }
 }
@@ -508,9 +508,9 @@ client.on('interactionCreate', async interaction => {
         const errorMessage = 'Une erreur est survenue lors de l\'exécution de la commande.';
         
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: errorMessage, ephemeral: true });
+            await interaction.followUp({ content: errorMessage, flags: 64 });
         } else {
-            await interaction.reply({ content: errorMessage, ephemeral: true });
+            await interaction.reply({ content: errorMessage, flags: 64 });
         }
     }
 });
@@ -547,7 +547,7 @@ async function handleList(interaction) {
 }
 
 async function handleRefresh(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
     
     // Recalculer tous les prix crypto
     await updateAllBrainrotsPrices(brainrots);
@@ -567,7 +567,7 @@ async function handleAddBrainrot(interaction) {
     const compte = interaction.options.getString('compte');
     const valeur = interaction.options.getInteger('valeur') || 1;
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     // Parser les traits (séparés par des virgules)
     const traitsArray = traits ? traits.split(',').map(t => t.trim()) : [];
@@ -648,7 +648,7 @@ async function handleRemoveBrainrot(interaction) {
     if (index === -1) {
         return interaction.reply({ 
             content: '❌ Ce brainrot n\'existe pas !', 
-            ephemeral: true 
+            flags: 64 
         });
     }
 
@@ -663,7 +663,7 @@ async function handleRemoveBrainrot(interaction) {
     
     await interaction.reply({ 
         content: `✅ **${removed.name}${mutDisplay}${traitsDisplay}** a été supprimé !`, 
-        ephemeral: true 
+        flags: 64 
     });
 }
 
@@ -687,11 +687,11 @@ async function handleUpdateBrainrot(interaction) {
     if (!brainrot) {
         return interaction.reply({ 
             content: '❌ Ce brainrot n\'existe pas !', 
-            ephemeral: true 
+            flags: 64 
         });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     // Mettre à jour les valeurs
     if (incomeRate !== null) brainrot.incomeRate = incomeRate;
@@ -720,7 +720,7 @@ async function handleUpdateBrainrot(interaction) {
 async function handleSetCrypto(interaction) {
     const crypto = interaction.options.getString('crypto');
     
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
     
     config.defaultCrypto = crypto;
     await saveConfig();
@@ -741,7 +741,7 @@ async function handleShowCompte(interaction) {
     if (withCompte.length === 0) {
         return interaction.reply({
             content: '📊 Aucun brainrot n\'a de compte assigné.',
-            ephemeral: true
+            flags: 64
         });
     }
     
@@ -756,16 +756,17 @@ async function handleShowCompte(interaction) {
     
     const embed = new EmbedBuilder()
         .setTitle('📊 Brainrots par Compte')
-        .setColor('#FFD700')
+        .setColor(0xFFD700)
         .setTimestamp();
     
     for (const [compte, items] of Object.entries(byCompte)) {
         const itemsList = items.map(br => {
             const valDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
-            const mutDisplay = br.mutations && br.mutations.length > 0 
-                ? ` [${br.mutations.join(', ')}]` 
+            const mutDisplay = br.mutation ? ` [${br.mutation}]` : '';
+            const traitsDisplay = br.traits && br.traits.length > 0 
+                ? ` {${br.traits.join(', ')}}` 
                 : '';
-            return `• ${br.name}${valDisplay}${mutDisplay} (${br.rarity})`;
+            return `• ${br.name}${valDisplay}${mutDisplay}${traitsDisplay} (${br.rarity})`;
         }).join('\n');
         
         embed.addFields({
@@ -775,7 +776,7 @@ async function handleShowCompte(interaction) {
         });
     }
     
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
 }
 
 // ═══════════════════════════════════════════════════════════
