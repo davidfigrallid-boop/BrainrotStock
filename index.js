@@ -207,7 +207,7 @@ function buildEmbed(viewMode = 'rarity') {
     const crypto = config.defaultCrypto;
     
     const embed = new EmbedBuilder()
-        .setColor('#ffe600ff')
+        .setColor(0xFFE600)
         .setImage('attachment://Banner.png')
         .setTimestamp()
         .setFooter({ text: `Auto-refresh: 5 min | Prix en ${crypto}` });
@@ -439,7 +439,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
     
     await loadBrainrots();
