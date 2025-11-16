@@ -188,9 +188,9 @@ function aggregateBrainrots(brainrotsList) {
         );
         
         if (existing) {
-            existing.valeur = (existing.valeur || 1) + (br.valeur || 1);
+            existing.quantite = (existing.quantite || 1) + (br.quantite || 1);
         } else {
-            aggregated.push({ ...br, valeur: br.valeur || 1 });
+            aggregated.push({ ...br, quantite: br.quantite || 1 });
         }
     }
     
@@ -344,13 +344,13 @@ function formatBrainrotLine(br, crypto, showTraits = false) {
         ? formatCryptoPrice(br.priceCrypto[crypto])
         : 'N/A';
     
-    const valeurDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
+    const quantiteDisplay = br.quantite > 1 ? ` x${br.quantite}` : '';
     const mutationDisplay = br.mutation ? ` [${br.mutation}]` : '';
     const traitsDisplay = showTraits && br.traits && br.traits.length > 0 
         ? ` {${br.traits.join(', ')}}` 
         : '';
     
-    return `**${br.name}${valeurDisplay}${mutationDisplay}${traitsDisplay}**\n` +
+    return `**${br.name}${quantiteDisplay}${mutationDisplay}${traitsDisplay}**\n` +
            `├ Income: ${formatPrice(parsePrice(br.incomeRate))}/s\n` +
            `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n`;
 }
@@ -605,12 +605,12 @@ async function handleAddBrainrot(interaction) {
 
     if (existing) {
         // Agréger avec l'existant
-        existing.valeur = (existing.valeur || 1) + quantite;
+        existing.quantite = (existing.quantite || 1) + quantite;
         await saveBrainrots();
         await updateEmbed(client);
         
         return interaction.editReply(
-            `✅ **${name}** agrégé ! Nouvelle quantité: x${existing.valeur}`
+            `✅ **${name}** agrégé ! Nouvelle quantité: x${existing.quantite}`
         );
     }
 
@@ -623,7 +623,7 @@ async function handleAddBrainrot(interaction) {
         priceEUR: priceEURParsed,
         priceCrypto,
         compte: compte || null,
-        valeur: quantite
+        quantite: quantite
     };
 
     brainrots.push(newBrainrot);
@@ -632,10 +632,10 @@ async function handleAddBrainrot(interaction) {
 
     const mutDisplay = mutation ? ` [${mutation}]` : '';
     const traitsDisplay = traitsArray.length > 0 ? ` {${traitsArray.join(', ')}}` : '';
-    const valDisplay = quantite > 1 ? ` x${quantite}` : '';
+    const quantiteDisplay = quantite > 1 ? ` x${quantite}` : '';
     
     await interaction.editReply(
-        `✅ **${name}${valDisplay}${mutDisplay}${traitsDisplay}** ajouté !\n` +
+        `✅ **${name}${quantiteDisplay}${mutDisplay}${traitsDisplay}** ajouté !\n` +
         `Rareté: ${rarity}\n` +
         `Prix: €${formatPrice(priceEURParsed)}`
     );
@@ -688,7 +688,7 @@ async function handleUpdateBrainrot(interaction) {
     const newTraits = interaction.options.getString('new_traits');
     const priceEUR = interaction.options.getString('price_eur');
     const compte = interaction.options.getString('compte');
-    const valeur = interaction.options.getInteger('valeur');
+    const quantite = interaction.options.getInteger('quantite');
     
     // Trouver le brainrot
     const brainrot = brainrots.find(br => {
@@ -727,7 +727,7 @@ async function handleUpdateBrainrot(interaction) {
     }
     
     if (compte !== null) brainrot.compte = compte;
-    if (valeur !== null) brainrot.valeur = valeur;
+    if (quantite !== null) brainrot.quantite = quantite;
     
     if (priceEUR !== null) {
         const priceEURParsed = parsePrice(priceEUR);
@@ -788,12 +788,12 @@ async function handleShowCompte(interaction) {
     
     for (const [compte, items] of Object.entries(byCompte)) {
         const itemsList = items.map(br => {
-            const valDisplay = br.valeur > 1 ? ` x${br.valeur}` : '';
+            const quantiteDisplay = br.quantite > 1 ? ` x${br.quantite}` : '';
             const mutDisplay = br.mutation ? ` [${br.mutation}]` : '';
             const traitsDisplay = br.traits && br.traits.length > 0 
                 ? ` {${br.traits.join(', ')}}` 
                 : '';
-            return `• ${br.name}${valDisplay}${mutDisplay}${traitsDisplay} (${br.rarity})`;
+            return `• ${br.name}${quantiteDisplay}${mutDisplay}${traitsDisplay} (${br.rarity})`;
         }).join('\n');
         
         embed.addFields({
@@ -964,7 +964,7 @@ const commands = [
                 .setDescription('Traits séparés par des virgules (ex: Fire, Taco, Zombie)')
                 .setRequired(false))
         .addIntegerOption(option =>
-            option.setName('valeur')
+            option.setName('quantite')
                 .setDescription('Nombre de brainrots identiques (défaut: 1)')
                 .setRequired(false)
                 .setMinValue(1))
@@ -1022,8 +1022,8 @@ const commands = [
                 .setDescription('Nouveau compte')
                 .setRequired(false))
         .addIntegerOption(option =>
-            option.setName('valeur')
-                .setDescription('Nouvelle valeur')
+            option.setName('quantite')
+                .setDescription('Nouvelle quantité')
                 .setRequired(false)
                 .setMinValue(1))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -1051,15 +1051,14 @@ const commands = [
                 .setDescription('Nom du brainrot')
                 .setRequired(true))
         .addStringOption(option =>
+            option.setName('trait')
+                .setDescription('Trait à ajouter')
+                .setRequired(true))
+        .addStringOption(option =>
             option.setName('mutation_filter')
                 .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
                 .setRequired(false)
                 .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-        .addStringOption(option =>
-            option.setName('trait')
-                .setDescription('Trait à ajouter (tapez pour chercher)')
-                .setRequired(true)
-                .setAutocomplete(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     
     new SlashCommandBuilder()
@@ -1070,15 +1069,14 @@ const commands = [
                 .setDescription('Nom du brainrot')
                 .setRequired(true))
         .addStringOption(option =>
+            option.setName('trait')
+                .setDescription('Trait à retirer')
+                .setRequired(true))
+        .addStringOption(option =>
             option.setName('mutation_filter')
                 .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
                 .setRequired(false)
                 .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-        .addStringOption(option =>
-            option.setName('trait')
-                .setDescription('Trait à retirer (tapez pour chercher)')
-                .setRequired(true)
-                .setAutocomplete(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ].map(command => command.toJSON());
 
