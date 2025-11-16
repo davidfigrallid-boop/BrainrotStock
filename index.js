@@ -956,12 +956,12 @@ const commands = [
                 .setDescription('Prix en euros (ex: 50, 1k, 1.5M, 2B)')
                 .setRequired(true))
         .addStringOption(option =>
-            option.setName('traits')
-                .setDescription('Traits séparés par des virgules (ex: Fire, Taco, Zombie)')
-                .setRequired(false))
-        .addStringOption(option =>
             option.setName('compte')
                 .setDescription('Nom du compte où se trouve le brainrot')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('traits')
+                .setDescription('Traits séparés par des virgules (ex: Fire, Taco, Zombie)')
                 .setRequired(false))
         .addIntegerOption(option =>
             option.setName('valeur')
