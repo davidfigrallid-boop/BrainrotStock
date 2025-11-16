@@ -208,13 +208,8 @@ function buildEmbed(viewMode = 'rarity') {
     
     const embed = new EmbedBuilder()
         .setColor(0xFFE600)
-        .setImage('attachment://Banner.png')
-        .setThumbnail('attachment://Banner.png')
         .setTimestamp()
-        .setFooter({ 
-            text: `Auto-refresh: 5 min | Prix en ${crypto}`,
-            iconURL: 'attachment://Banner.png'
-        });
+        .setFooter({ text: `Auto-refresh: 5 min | Prix en ${crypto}` });
 
     if (sorted.length === 0) {
         embed.setDescription('*Aucun brainrot disponible*');
@@ -226,19 +221,15 @@ function buildEmbed(viewMode = 'rarity') {
             buildRarityView(embed, sorted, crypto);
             break;
         case 'price_eur':
-            embed.setDescription('**💰 Trié par Prix EUR**\n');
             buildPriceEURView(embed, sorted, crypto);
             break;
         case 'income':
-            embed.setDescription('**📈 Trié par Income**\n');
             buildIncomeView(embed, sorted, crypto);
             break;
         case 'mutations':
-            embed.setDescription('**🧬 Groupé par Mutation**\n');
             buildMutationsView(embed, sorted, crypto);
             break;
         case 'traits':
-            embed.setDescription('**✨ Groupé par Trait**\n');
             buildTraitsView(embed, sorted, crypto);
             break;
     }
@@ -254,8 +245,6 @@ function buildRarityView(embed, sorted, crypto) {
         }
         groupedByRarity[br.rarity].push(br);
     });
-
-    embed.setDescription('\u200B'); // Caractère invisible pour éviter le texte au-dessus
 
     Object.keys(groupedByRarity).forEach(rarity => {
         const items = groupedByRarity[rarity];
@@ -279,9 +268,8 @@ function buildPriceEURView(embed, sorted, crypto) {
     });
 
     const itemsList = sortedByPrice.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
-    const currentDesc = embed.data.description || '';
     
-    embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
+    embed.setDescription(itemsList || '*Aucun brainrot*');
 }
 
 function buildIncomeView(embed, sorted, crypto) {
@@ -292,9 +280,8 @@ function buildIncomeView(embed, sorted, crypto) {
     });
 
     const itemsList = sortedByIncome.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
-    const currentDesc = embed.data.description || '';
     
-    embed.setDescription(currentDesc + (itemsList || '*Aucun brainrot*'));
+    embed.setDescription(itemsList || '*Aucun brainrot*');
 }
 
 function buildMutationsView(embed, sorted, crypto) {
@@ -417,11 +404,14 @@ async function updateEmbed(client, viewMode = 'rarity') {
         const embed = buildEmbed(viewMode);
         const buttons = createNavigationButtons();
         
-        // Récupérer la banner depuis les attachments existants
-        const bannerAttachment = message.attachments.first();
-        const files = bannerAttachment ? [bannerAttachment] : [];
+        // Garder les fichiers existants (banner)
+        const existingFiles = Array.from(message.attachments.values());
         
-        await message.edit({ embeds: [embed], components: [buttons], files });
+        await message.edit({ 
+            embeds: [embed], 
+            components: [buttons],
+            files: existingFiles
+        });
         console.log('🔄 Embed mis à jour');
     } catch (error) {
         console.error('❌ Erreur lors de la mise à jour de l\'embed:', error);
@@ -462,11 +452,14 @@ client.on('interactionCreate', async interaction => {
             const embed = buildEmbed(viewMode);
             const buttons = createNavigationButtons();
             
-            // Garder la banner existante
-            const bannerAttachment = interaction.message.attachments.first();
-            const files = bannerAttachment ? [bannerAttachment] : [];
+            // Garder tous les fichiers existants (banner)
+            const existingFiles = Array.from(interaction.message.attachments.values());
             
-            await interaction.update({ embeds: [embed], components: [buttons], files });
+            await interaction.update({ 
+                embeds: [embed], 
+                components: [buttons],
+                files: existingFiles
+            });
         } catch (error) {
             console.error('❌ Erreur bouton:', error);
         }
@@ -500,6 +493,12 @@ client.on('interactionCreate', async interaction => {
             case 'showcompte':
                 await handleShowCompte(interaction);
                 break;
+            case 'addtrait':
+                await handleAddTrait(interaction);
+                break;
+            case 'removetrait':
+                await handleRemoveTrait(interaction);
+                break;
         }
     } catch (error) {
         console.error(`❌ Erreur dans la commande ${commandName}:`, error);
@@ -525,15 +524,18 @@ async function handleList(interaction) {
     // Charger la banner
     const bannerPath = path.join(__dirname, 'Banner.png');
     let files = [];
+    let content = '';
     
     try {
         await fs.access(bannerPath);
-        files = [{ attachment: bannerPath, name: 'Banner.png' }];
+        files = [bannerPath];
+        // La banner sera affichée comme image séparée, pas dans l'embed
     } catch (error) {
         console.log('⚠️ Banner.png introuvable, embed sans image');
     }
     
     const message = await interaction.reply({ 
+        content: content || undefined,
         embeds: [embed], 
         components: [buttons], 
         files,
@@ -564,7 +566,7 @@ async function handleAddBrainrot(interaction) {
     const traits = interaction.options.getString('traits');
     const priceEUR = interaction.options.getString('price_eur');
     const compte = interaction.options.getString('compte');
-    const valeur = interaction.options.getInteger('valeur') || 1;
+    const quantite = interaction.options.getInteger('quantite') || 1;
 
     await interaction.deferReply({ flags: 64 });
 
@@ -577,8 +579,8 @@ async function handleAddBrainrot(interaction) {
         const invalidTraits = traitsArray.filter(t => !TRAITS.includes(t));
         if (invalidTraits.length > 0) {
             return interaction.editReply(
-                `❌ Traits invalides: ${invalidTraits.join(', ')}\n` +
-                `Traits disponibles: ${TRAITS.join(', ')}`
+                `❌ Traits invalides: ${invalidTraits.join(', ')}\n\n` +
+                `**Traits disponibles:**\n${TRAITS.join(', ')}`
             );
         }
     }
@@ -603,12 +605,12 @@ async function handleAddBrainrot(interaction) {
 
     if (existing) {
         // Agréger avec l'existant
-        existing.valeur = (existing.valeur || 1) + valeur;
+        existing.valeur = (existing.valeur || 1) + quantite;
         await saveBrainrots();
         await updateEmbed(client);
         
         return interaction.editReply(
-            `✅ **${name}** agrégé ! Nouvelle valeur: x${existing.valeur}`
+            `✅ **${name}** agrégé ! Nouvelle quantité: x${existing.valeur}`
         );
     }
 
@@ -621,7 +623,7 @@ async function handleAddBrainrot(interaction) {
         priceEUR: priceEURParsed,
         priceCrypto,
         compte: compte || null,
-        valeur
+        valeur: quantite
     };
 
     brainrots.push(newBrainrot);
@@ -630,7 +632,7 @@ async function handleAddBrainrot(interaction) {
 
     const mutDisplay = mutation ? ` [${mutation}]` : '';
     const traitsDisplay = traitsArray.length > 0 ? ` {${traitsArray.join(', ')}}` : '';
-    const valDisplay = valeur > 1 ? ` x${valeur}` : '';
+    const valDisplay = quantite > 1 ? ` x${quantite}` : '';
     
     await interaction.editReply(
         `✅ **${name}${valDisplay}${mutDisplay}${traitsDisplay}** ajouté !\n` +
@@ -642,9 +644,9 @@ async function handleAddBrainrot(interaction) {
 async function handleRemoveBrainrot(interaction) {
     const name = interaction.options.getString('name');
     const mutation = interaction.options.getString('mutation');
-    const traits = interaction.options.getString('traits');
+    const traitsFilter = interaction.options.getString('traits_filter');
     
-    const traitsArray = traits ? traits.split(',').map(t => t.trim()) : null;
+    const traitsArray = traitsFilter ? traitsFilter.split(',').map(t => t.trim()) : null;
     
     // Trouver le brainrot correspondant
     const index = brainrots.findIndex(br => {
@@ -707,9 +709,23 @@ async function handleUpdateBrainrot(interaction) {
     // Mettre à jour les valeurs
     if (incomeRate !== null) brainrot.incomeRate = incomeRate;
     if (newMutation !== null) brainrot.mutation = newMutation;
+    
+    // Mettre à jour les traits
     if (newTraits !== null) {
-        brainrot.traits = newTraits.split(',').map(t => t.trim());
+        const traitsArray = newTraits.split(',').map(t => t.trim());
+        
+        // Vérifier que tous les traits sont valides
+        const invalidTraits = traitsArray.filter(t => !TRAITS.includes(t));
+        if (invalidTraits.length > 0) {
+            return interaction.editReply(
+                `❌ Traits invalides: ${invalidTraits.join(', ')}\n\n` +
+                `**Traits disponibles:**\n${TRAITS.join(', ')}`
+            );
+        }
+        
+        brainrot.traits = traitsArray;
     }
+    
     if (compte !== null) brainrot.compte = compte;
     if (valeur !== null) brainrot.valeur = valeur;
     
@@ -790,6 +806,108 @@ async function handleShowCompte(interaction) {
     await interaction.reply({ embeds: [embed], flags: 64 });
 }
 
+async function handleAddTrait(interaction) {
+    const name = interaction.options.getString('name');
+    const mutationFilter = interaction.options.getString('mutation_filter');
+    const trait = interaction.options.getString('trait');
+    
+    // Valider le trait
+    if (!TRAITS.includes(trait)) {
+        return interaction.reply({
+            content: `❌ Trait invalide: "${trait}". Utilisez l'autocomplete pour choisir un trait valide.`,
+            flags: 64
+        });
+    }
+    
+    // Trouver le brainrot
+    const brainrot = brainrots.find(br => {
+        const nameMatch = br.name.toLowerCase() === name.toLowerCase();
+        const mutMatch = mutationFilter ? br.mutation === mutationFilter : true;
+        return nameMatch && mutMatch;
+    });
+    
+    if (!brainrot) {
+        return interaction.reply({
+            content: '❌ Ce brainrot n\'existe pas !',
+            flags: 64
+        });
+    }
+    
+    // Initialiser les traits si nécessaire
+    if (!brainrot.traits) {
+        brainrot.traits = [];
+    }
+    
+    // Vérifier si le trait existe déjà
+    if (brainrot.traits.includes(trait)) {
+        return interaction.reply({
+            content: `❌ Le trait "${trait}" est déjà présent sur **${brainrot.name}** !`,
+            flags: 64
+        });
+    }
+    
+    // Ajouter le trait
+    brainrot.traits.push(trait);
+    await saveBrainrots();
+    await updateEmbed(client);
+    
+    await interaction.reply({
+        content: `✅ Trait "${trait}" ajouté à **${brainrot.name}** !\nTraits actuels: {${brainrot.traits.join(', ')}}`,
+        flags: 64
+    });
+}
+
+async function handleRemoveTrait(interaction) {
+    const name = interaction.options.getString('name');
+    const mutationFilter = interaction.options.getString('mutation_filter');
+    const trait = interaction.options.getString('trait');
+    
+    // Trouver le brainrot
+    const brainrot = brainrots.find(br => {
+        const nameMatch = br.name.toLowerCase() === name.toLowerCase();
+        const mutMatch = mutationFilter ? br.mutation === mutationFilter : true;
+        return nameMatch && mutMatch;
+    });
+    
+    if (!brainrot) {
+        return interaction.reply({
+            content: '❌ Ce brainrot n\'existe pas !',
+            flags: 64
+        });
+    }
+    
+    // Vérifier si le brainrot a des traits
+    if (!brainrot.traits || brainrot.traits.length === 0) {
+        return interaction.reply({
+            content: `❌ **${brainrot.name}** n'a aucun trait !`,
+            flags: 64
+        });
+    }
+    
+    // Vérifier si le trait existe
+    const traitIndex = brainrot.traits.indexOf(trait);
+    if (traitIndex === -1) {
+        return interaction.reply({
+            content: `❌ Le trait "${trait}" n'est pas présent sur **${brainrot.name}** !\nTraits actuels: {${brainrot.traits.join(', ')}}`,
+            flags: 64
+        });
+    }
+    
+    // Retirer le trait
+    brainrot.traits.splice(traitIndex, 1);
+    await saveBrainrots();
+    await updateEmbed(client);
+    
+    const remainingTraits = brainrot.traits.length > 0 
+        ? `\nTraits restants: {${brainrot.traits.join(', ')}}` 
+        : '\nPlus aucun trait.';
+    
+    await interaction.reply({
+        content: `✅ Trait "${trait}" retiré de **${brainrot.name}** !${remainingTraits}`,
+        flags: 64
+    });
+}
+
 // ═══════════════════════════════════════════════════════════
 // ENREGISTREMENT DES COMMANDES
 // ═══════════════════════════════════════════════════════════
@@ -865,7 +983,7 @@ const commands = [
                 .setRequired(false)
                 .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
         .addStringOption(option =>
-            option.setName('traits')
+            option.setName('traits_filter')
                 .setDescription('Traits pour identifier le brainrot (ex: Fire, Taco)')
                 .setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -893,7 +1011,7 @@ const commands = [
                 .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
         .addStringOption(option =>
             option.setName('new_traits')
-                .setDescription('Nouveaux traits (remplace les anciens, ex: Fire, Taco)')
+                .setDescription('Nouveaux traits séparés par des virgules (ex: Fire, Taco)')
                 .setRequired(false))
         .addStringOption(option =>
             option.setName('price_eur')
@@ -923,6 +1041,44 @@ const commands = [
     new SlashCommandBuilder()
         .setName('showcompte')
         .setDescription('Affiche les brainrots groupés par compte')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    
+    new SlashCommandBuilder()
+        .setName('addtrait')
+        .setDescription('Ajoute un trait à un brainrot existant')
+        .addStringOption(option =>
+            option.setName('name')
+                .setDescription('Nom du brainrot')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('mutation_filter')
+                .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
+                .setRequired(false)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+        .addStringOption(option =>
+            option.setName('trait')
+                .setDescription('Trait à ajouter (tapez pour chercher)')
+                .setRequired(true)
+                .setAutocomplete(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    
+    new SlashCommandBuilder()
+        .setName('removetrait')
+        .setDescription('Retire un trait d\'un brainrot existant')
+        .addStringOption(option =>
+            option.setName('name')
+                .setDescription('Nom du brainrot')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('mutation_filter')
+                .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
+                .setRequired(false)
+                .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+        .addStringOption(option =>
+            option.setName('trait')
+                .setDescription('Trait à retirer (tapez pour chercher)')
+                .setRequired(true)
+                .setAutocomplete(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ].map(command => command.toJSON());
 
