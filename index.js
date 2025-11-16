@@ -221,9 +221,11 @@ function buildEmbed(viewMode = 'rarity') {
             buildRarityView(embed, sorted, crypto);
             break;
         case 'price_eur':
+            embed.setTitle('💰 Trié par Prix EUR');
             buildPriceEURView(embed, sorted, crypto);
             break;
         case 'income':
+            embed.setTitle('📈 Trié par Income');
             buildIncomeView(embed, sorted, crypto);
             break;
         case 'mutations':
@@ -352,7 +354,7 @@ function formatBrainrotLine(br, crypto, showTraits = false) {
     
     return `**${br.name}${quantiteDisplay}${mutationDisplay}${traitsDisplay}**\n` +
            `├ Income: ${formatPrice(parsePrice(br.incomeRate))}/s\n` +
-           `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n`;
+           `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n\n`;
 }
 
 function createNavigationButtons() {
