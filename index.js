@@ -11,10 +11,12 @@ const GUILD_ID = process.env.GUILD_ID;
 
 const BRAINROTS_FILE = path.join(__dirname, 'brainrots.json');
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+const GIVEAWAYS_FILE = path.join(__dirname, 'giveaways.json');
 const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // État global
 let brainrots = [];
+let giveaways = [];
 let config = {
     defaultCrypto: 'BTC',
     listMessageId: null,
@@ -152,6 +154,31 @@ async function saveConfig() {
         console.log('⚙️ Configuration sauvegardée');
     } catch (error) {
         console.error('❌ Erreur lors de la sauvegarde de la config:', error);
+    }
+}
+
+async function loadGiveaways() {
+    try {
+        const data = await fs.readFile(GIVEAWAYS_FILE, 'utf8');
+        giveaways = JSON.parse(data);
+        console.log(`✅ ${giveaways.length} giveaways chargés`);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            giveaways = [];
+            await saveGiveaways();
+        } else {
+            console.error('❌ Erreur lors du chargement des giveaways:', error);
+            giveaways = [];
+        }
+    }
+}
+
+async function saveGiveaways() {
+    try {
+        await fs.writeFile(GIVEAWAYS_FILE, JSON.stringify(giveaways, null, 2), 'utf8');
+        console.log('💾 Giveaways sauvegardés');
+    } catch (error) {
+        console.error('❌ Erreur lors de la sauvegarde des giveaways:', error);
     }
 }
 
@@ -452,11 +479,17 @@ client.once('clientReady', async () => {
     
     await loadBrainrots();
     await loadConfig();
+    await loadGiveaways();
     
     // Auto-refresh toutes les 5 minutes
     setInterval(() => {
         updateEmbed(client);
     }, REFRESH_INTERVAL);
+    
+    // Vérifier les giveaways toutes les 10 secondes
+    setInterval(() => {
+        checkGiveaways(client);
+    }, 10000);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -467,6 +500,34 @@ client.on('interactionCreate', async interaction => {
     // Gestion des boutons
     if (interaction.isButton()) {
         try {
+            // Bouton giveaway
+            if (interaction.customId === 'giveaway_join') {
+                const giveaway = giveaways.find(g => g.messageId === interaction.message.id);
+                
+                if (!giveaway) {
+                    return interaction.reply({ content: '❌ Giveaway introuvable !', flags: 64 });
+                }
+                
+                if (giveaway.ended) {
+                    return interaction.reply({ content: '❌ Ce giveaway est terminé !', flags: 64 });
+                }
+                
+                const userId = interaction.user.id;
+                
+                if (giveaway.participants.includes(userId)) {
+                    giveaway.participants = giveaway.participants.filter(id => id !== userId);
+                    await saveGiveaways();
+                    await updateGiveawayEmbed(client, giveaway);
+                    return interaction.reply({ content: '❌ Vous avez quitté le giveaway !', flags: 64 });
+                } else {
+                    giveaway.participants.push(userId);
+                    await saveGiveaways();
+                    await updateGiveawayEmbed(client, giveaway);
+                    return interaction.reply({ content: '✅ Vous participez au giveaway !', flags: 64 });
+                }
+            }
+            
+            // Boutons navigation brainrots
             const viewMode = interaction.customId.replace('view_', '');
             const embed = buildEmbed(viewMode);
             const buttons = createNavigationButtons();
@@ -518,6 +579,27 @@ client.on('interactionCreate', async interaction => {
             case 'removetrait':
                 await handleRemoveTrait(interaction);
                 break;
+            case 'giveaway':
+                await handleGiveaway(interaction);
+                break;
+            case 'gend':
+                await handleGiveawayEnd(interaction);
+                break;
+            case 'greroll':
+                await handleGiveawayReroll(interaction);
+                break;
+            case 'glist':
+                await handleGiveawayList(interaction);
+                break;
+            case 'clear':
+                await handleClear(interaction);
+                break;
+            case 'announce':
+                await handleAnnounce(interaction);
+                break;
+            case 'stats':
+                await handleStats(interaction);
+                break;
         }
     } catch (error) {
         console.error(`❌ Erreur dans la commande ${commandName}:`, error);
@@ -531,6 +613,138 @@ client.on('interactionCreate', async interaction => {
         }
     }
 });
+
+// ═══════════════════════════════════════════════════════════
+// FONCTIONS GIVEAWAY
+// ═══════════════════════════════════════════════════════════
+
+function buildGiveawayEmbed(giveaway) {
+    const endTime = Math.floor(giveaway.endTime / 1000);
+    const now = Math.floor(Date.now() / 1000);
+    const timeLeft = endTime - now;
+    
+    let timeDisplay;
+    if (timeLeft <= 0) {
+        timeDisplay = '**TERMINÉ**';
+    } else {
+        timeDisplay = `<t:${endTime}:R>`;
+    }
+    
+    const embed = new EmbedBuilder()
+        .setTitle('🎉 GIVEAWAY 🎉')
+        .setDescription(`\n\n**${giveaway.prize}**\n\n`)
+        .addFields(
+            { name: '⏰ Se termine', value: timeDisplay, inline: true },
+            { name: '👥 Participants', value: `${giveaway.participants.length}`, inline: true },
+            { name: '🎁 Gagnants', value: `${giveaway.winners}`, inline: true }
+        )
+        .setColor(0xFF0000)
+        .setImage('attachment://Robux.jpg')
+        .setFooter({ text: 'Cliquez sur 🎉 pour participer !' })
+        .setTimestamp();
+    
+    return embed;
+}
+
+function createGiveawayButton() {
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('giveaway_join')
+                .setLabel('Participer')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🎉')
+        );
+}
+
+async function checkGiveaways(client) {
+    const now = Date.now();
+    
+    for (const giveaway of giveaways) {
+        if (giveaway.ended) continue;
+        
+        if (now >= giveaway.endTime) {
+            await endGiveaway(client, giveaway);
+        } else {
+            // Mettre à jour l'embed avec le temps restant
+            await updateGiveawayEmbed(client, giveaway);
+        }
+    }
+}
+
+async function updateGiveawayEmbed(client, giveaway) {
+    try {
+        const channel = await client.channels.fetch(giveaway.channelId);
+        const message = await channel.messages.fetch(giveaway.messageId);
+        const embed = buildGiveawayEmbed(giveaway);
+        const button = createGiveawayButton();
+        
+        const robuxPath = path.join(__dirname, 'Robux.jpg');
+        let files = [];
+        try {
+            await fs.access(robuxPath);
+            files = message.attachments.size > 0 ? Array.from(message.attachments.values()) : [robuxPath];
+        } catch (error) {
+            files = message.attachments.size > 0 ? Array.from(message.attachments.values()) : [];
+        }
+        
+        await message.edit({ embeds: [embed], components: [button], files });
+    } catch (error) {
+        console.error('❌ Erreur mise à jour giveaway:', error);
+    }
+}
+
+async function endGiveaway(client, giveaway) {
+    giveaway.ended = true;
+    
+    try {
+        const channel = await client.channels.fetch(giveaway.channelId);
+        const message = await channel.messages.fetch(giveaway.messageId);
+        
+        let winnersText;
+        if (giveaway.participants.length === 0) {
+            winnersText = 'Aucun participant 😢';
+        } else if (giveaway.forcedWinner) {
+            winnersText = `<@${giveaway.forcedWinner}>`;
+        } else {
+            const winnersList = [];
+            const participants = [...giveaway.participants];
+            for (let i = 0; i < Math.min(giveaway.winners, participants.length); i++) {
+                const randomIndex = Math.floor(Math.random() * participants.length);
+                winnersList.push(participants[randomIndex]);
+                participants.splice(randomIndex, 1);
+            }
+            winnersText = winnersList.map(id => `<@${id}>`).join(', ');
+        }
+        
+        const endEmbed = new EmbedBuilder()
+            .setTitle('🎉 GIVEAWAY TERMINÉ 🎉')
+            .setDescription(`\n\n**${giveaway.prize}**\n\n`)
+            .addFields(
+                { name: '🏆 Gagnant(s)', value: winnersText, inline: false },
+                { name: '👥 Participants', value: `${giveaway.participants.length}`, inline: true }
+            )
+            .setColor(0x00FF00)
+            .setImage('attachment://Robux.jpg')
+            .setTimestamp();
+        
+        const robuxPath = path.join(__dirname, 'Robux.jpg');
+        let files = [];
+        try {
+            await fs.access(robuxPath);
+            files = message.attachments.size > 0 ? Array.from(message.attachments.values()) : [robuxPath];
+        } catch (error) {
+            files = message.attachments.size > 0 ? Array.from(message.attachments.values()) : [];
+        }
+        
+        await message.edit({ embeds: [endEmbed], components: [], files });
+        await channel.send(`🎉 Félicitations ${winnersText} ! Vous avez gagné **${giveaway.prize}** !`);
+        
+        await saveGiveaways();
+    } catch (error) {
+        console.error('❌ Erreur fin giveaway:', error);
+    }
+}
 
 // ═══════════════════════════════════════════════════════════
 // HANDLERS DES COMMANDES
