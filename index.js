@@ -1141,15 +1141,44 @@ async function handleRemoveTrait(interaction) {
     });
 }
 
+function parseDuration(durationStr) {
+    const match = /^(\d+)\s*(min|h|j|sem|m|an)$/.exec(durationStr.toLowerCase().trim());
+    
+    if (!match) {
+        return null;
+    }
+    
+    const [, amount, unit] = match;
+    const value = parseInt(amount);
+    
+    const multipliers = {
+        'min': 1,
+        'h': 60,
+        'j': 60 * 24,
+        'sem': 60 * 24 * 7,
+        'm': 60 * 24 * 30,
+        'an': 60 * 24 * 365
+    };
+    
+    return value * multipliers[unit];
+}
+
 async function handleGiveaway(interaction) {
     const prize = interaction.options.getString('prize');
-    const duration = interaction.options.getInteger('duration');
+    const durationInput = interaction.options.getString('duration');
     const winners = interaction.options.getInteger('winners') || 1;
     const forcedWinner = interaction.options.getUser('forced_winner');
     
     await interaction.deferReply({ flags: 64 });
     
-    const endTime = Date.now() + (duration * 60 * 1000);
+    // Parser la durée
+    const durationMinutes = parseDuration(durationInput);
+    
+    if (!durationMinutes) {
+        return interaction.editReply('❌ Format de durée invalide ! Utilisez: 1min, 1h, 1j, 1sem, 1m, 1an');
+    }
+    
+    const endTime = Date.now() + (durationMinutes * 60 * 1000);
     
     const giveaway = {
         prize,
@@ -1521,11 +1550,10 @@ const commands = [
             option.setName('prize')
                 .setDescription('Prix du giveaway')
                 .setRequired(true))
-        .addIntegerOption(option =>
+        .addStringOption(option =>
             option.setName('duration')
-                .setDescription('Durée en minutes')
-                .setRequired(true)
-                .setMinValue(1))
+                .setDescription('Durée (ex: 1min, 1h, 1j, 1sem, 1m, 1an)')
+                .setRequired(true))
         .addIntegerOption(option =>
             option.setName('winners')
                 .setDescription('Nombre de gagnants (défaut: 1)')
