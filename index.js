@@ -218,6 +218,7 @@ function buildEmbed(viewMode = 'rarity') {
 
     switch (viewMode) {
         case 'rarity':
+            embed.setTitle('🎨 Par Rareté');
             buildRarityView(embed, sorted, crypto);
             break;
         case 'price_eur':
@@ -229,9 +230,11 @@ function buildEmbed(viewMode = 'rarity') {
             buildIncomeView(embed, sorted, crypto);
             break;
         case 'mutations':
+            embed.setTitle('🧬 Par Mutation');
             buildMutationsView(embed, sorted, crypto);
             break;
         case 'traits':
+            embed.setTitle('✨ Par Trait');
             buildTraitsView(embed, sorted, crypto);
             break;
     }
@@ -248,15 +251,19 @@ function buildRarityView(embed, sorted, crypto) {
         groupedByRarity[br.rarity].push(br);
     });
 
+    // Gap de 2 après le titre
+    embed.setDescription('\n\n');
+
     Object.keys(groupedByRarity).forEach(rarity => {
         const items = groupedByRarity[rarity];
         const colorEmoji = rarityColors[rarity] || '📦';
         
+        // Gap de 1 entre les brainrots
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `\n# ${colorEmoji} ${rarity}\n`,
-            value: itemsList || '*Aucun*',
+            name: `${colorEmoji} ${rarity}`,
+            value: itemsList + '\n\n', // Gap de 2 après la section
             inline: false
         });
     });
@@ -269,9 +276,10 @@ function buildPriceEURView(embed, sorted, crypto) {
         return priceB - priceA;
     });
 
+    // Gap de 2 après le titre, puis gap de 1 entre les brainrots
     const itemsList = sortedByPrice.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
     
-    embed.setDescription(itemsList || '*Aucun brainrot*');
+    embed.setDescription('\n\n' + (itemsList || '*Aucun brainrot*'));
 }
 
 function buildIncomeView(embed, sorted, crypto) {
@@ -281,9 +289,10 @@ function buildIncomeView(embed, sorted, crypto) {
         return incomeB - incomeA;
     });
 
+    // Gap de 2 après le titre, puis gap de 1 entre les brainrots
     const itemsList = sortedByIncome.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
     
-    embed.setDescription(itemsList || '*Aucun brainrot*');
+    embed.setDescription('\n\n' + (itemsList || '*Aucun brainrot*'));
 }
 
 function buildMutationsView(embed, sorted, crypto) {
@@ -297,13 +306,17 @@ function buildMutationsView(embed, sorted, crypto) {
         groupedByMutation[mutation].push(br);
     });
 
+    // Gap de 2 après le titre
+    embed.setDescription('\n\n');
+
     Object.keys(groupedByMutation).sort().forEach(mutation => {
         const items = groupedByMutation[mutation];
+        // Gap de 1 entre les brainrots
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `\n# 🧬 ${mutation}\n`,
-            value: itemsList || '*Aucun*',
+            name: `🧬 ${mutation}`,
+            value: itemsList + '\n\n', // Gap de 2 après la section
             inline: false
         });
     });
@@ -329,13 +342,17 @@ function buildTraitsView(embed, sorted, crypto) {
         }
     });
 
+    // Gap de 2 après le titre
+    embed.setDescription('\n\n');
+
     Object.keys(groupedByTrait).sort().forEach(trait => {
         const items = groupedByTrait[trait];
+        // Gap de 1 entre les brainrots
         const itemsList = items.map(br => formatBrainrotLine(br, crypto, true)).join('\n');
 
         embed.addFields({
-            name: `\n# ✨ ${trait}\n`,
-            value: itemsList || '*Aucun*',
+            name: `✨ ${trait}`,
+            value: itemsList + '\n\n', // Gap de 2 après la section
             inline: false
         });
     });
@@ -354,7 +371,7 @@ function formatBrainrotLine(br, crypto, showTraits = false) {
     
     return `**${br.name}${quantiteDisplay}${mutationDisplay}${traitsDisplay}**\n` +
            `├ Income: ${formatPrice(parsePrice(br.incomeRate))}/s\n` +
-           `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n\n`;
+           `├ Prix: €${formatPrice(parsePrice(br.priceEUR))} (${cryptoPrice} ${crypto})\n`;
 }
 
 function createNavigationButtons() {
