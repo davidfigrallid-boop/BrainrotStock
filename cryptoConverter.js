@@ -127,7 +127,7 @@ async function getAllCryptoPrices() {
                     // Si tous les prix sont null, essayer CoinCap
                     const validPrices = Object.values(prices).filter(p => p !== null);
                     if (validPrices.length === 0) {
-                        console.log('⚠️ Aucun prix CoinGecko, utilisation de CoinCap...');
+                        console.log('Aucun prix CoinGecko, utilisation de CoinCap...');
                         const capPrices = await getPricesFromCoinCap();
                         priceCache.data = capPrices;
                         priceCache.lastUpdate = Date.now();
