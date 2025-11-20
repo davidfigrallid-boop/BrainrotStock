@@ -3,25 +3,58 @@ const mysql = require('mysql2/promise');
 let pool = null;
 let useDatabase = false;
 
-// Configuration MySQL depuis les variables d'environnement
-const dbConfig = {
-    host: process.env.MYSQL_HOST || process.env.RAILWAY_PRIVATE_DOMAIN,
-    port: parseInt(process.env.MYSQL_PORT || '3306'),
-    user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || process.env.MYSQL_ROOT_PASSWORD,
-    database: process.env.MYSQL_DATABASE || 'railway',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-};
+// Configuration MySQL depuis les variables d'environnement Railway
+function getDbConfig() {
+    // Priorité 1 : MYSQL_PUBLIC_URL (Railway)
+    if (process.env.MYSQL_PUBLIC_URL) {
+        console.log('📡 Utilisation de MYSQL_PUBLIC_URL (Railway)');
+        return process.env.MYSQL_PUBLIC_URL;
+    }
+    
+    // Priorité 2 : Variables Railway individuelles
+    if (process.env.RAILWAY_TCP_PROXY_DOMAIN && process.env.RAILWAY_TCP_PROXY_PORT) {
+        console.log('📡 Utilisation des variables Railway TCP Proxy');
+        return {
+            host: process.env.RAILWAY_TCP_PROXY_DOMAIN,
+            port: parseInt(process.env.RAILWAY_TCP_PROXY_PORT),
+            user: process.env.MYSQLUSER || 'root',
+            password: process.env.MYSQL_ROOT_PASSWORD,
+            database: process.env.MYSQL_DATABASE || 'railway',
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0,
+            connectTimeout: 10000
+        };
+    }
+    
+    // Priorité 3 : Variables .env (fallback)
+    if (process.env.MYSQLHOST) {
+        console.log('📡 Utilisation des variables .env');
+        return {
+            host: process.env.MYSQLHOST,
+            port: parseInt(process.env.MYSQLPORT || '3306'),
+            user: process.env.MYSQLUSER || 'root',
+            password: process.env.MYSQLPASSWORD,
+            database: process.env.MYSQLDATABASE || 'railway',
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0,
+            connectTimeout: 10000
+        };
+    }
+    
+    return null;
+}
 
 /**
  * Initialise la connexion à la base de données
  */
 async function initDatabase() {
+    const dbConfig = getDbConfig();
+    
     // Vérifier si les variables MySQL sont définies
-    if (!dbConfig.host || !dbConfig.password) {
-        console.log('⚠️ Variables MySQL non définies, utilisation du système JSON');
+    if (!dbConfig) {
+        console.log('⚠️ Variables MySQL Railway non détectées, utilisation du système JSON');
         useDatabase = false;
         return false;
     }
@@ -29,9 +62,9 @@ async function initDatabase() {
     try {
         pool = mysql.createPool(dbConfig);
         
-        // Tester la connexion
+        // Tester la connexion avec timeout
         const connection = await pool.getConnection();
-        console.log('✅ Connexion MySQL établie');
+        console.log('✅ Connexion MySQL Railway établie');
         
         // Créer les tables si elles n'existent pas
         await createTables(connection);
