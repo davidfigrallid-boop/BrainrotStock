@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, Permission
 const fs = require('fs').promises;
 const path = require('path');
 const { convertEURToAllCryptos, getSupportedCryptos, updateAllBrainrotsPrices } = require('./cryptoConverter');
+const { initDatabase, getAllBrainrots, saveAllBrainrots, getAllGiveaways, saveAllGiveaways, isDatabaseEnabled } = require('./database');
 
 // Configuration
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -109,10 +110,21 @@ function formatCryptoPrice(price) {
 // ═══════════════════════════════════════════════════════════
 
 async function loadBrainrots() {
+    // Essayer de charger depuis MySQL d'abord
+    if (isDatabaseEnabled()) {
+        const dbBrainrots = await getAllBrainrots();
+        if (dbBrainrots !== null) {
+            brainrots = dbBrainrots;
+            console.log(`✅ ${brainrots.length} brainrots chargés depuis MySQL`);
+            return;
+        }
+    }
+    
+    // Fallback sur JSON
     try {
         const data = await fs.readFile(BRAINROTS_FILE, 'utf8');
         brainrots = JSON.parse(data);
-        console.log(`✅ ${brainrots.length} brainrots chargés`);
+        console.log(`✅ ${brainrots.length} brainrots chargés depuis JSON`);
     } catch (error) {
         if (error.code === 'ENOENT') {
             console.log('⚠️ Fichier brainrots.json introuvable, création...');
@@ -126,9 +138,25 @@ async function loadBrainrots() {
 }
 
 async function saveBrainrots() {
+    // Sauvegarder dans MySQL si disponible
+    if (isDatabaseEnabled()) {
+        const success = await saveAllBrainrots(brainrots);
+        if (success) {
+            // Sauvegarder aussi dans JSON comme backup
+            try {
+                await fs.writeFile(BRAINROTS_FILE, JSON.stringify(brainrots, null, 2), 'utf8');
+                console.log('💾 Brainrots sauvegardés (MySQL + JSON backup)');
+            } catch (error) {
+                console.log('💾 Brainrots sauvegardés (MySQL uniquement)');
+            }
+            return;
+        }
+    }
+    
+    // Fallback sur JSON
     try {
         await fs.writeFile(BRAINROTS_FILE, JSON.stringify(brainrots, null, 2), 'utf8');
-        console.log('💾 Brainrots sauvegardés');
+        console.log('💾 Brainrots sauvegardés (JSON)');
     } catch (error) {
         console.error('❌ Erreur lors de la sauvegarde:', error);
     }
@@ -158,10 +186,21 @@ async function saveConfig() {
 }
 
 async function loadGiveaways() {
+    // Essayer de charger depuis MySQL d'abord
+    if (isDatabaseEnabled()) {
+        const dbGiveaways = await getAllGiveaways();
+        if (dbGiveaways !== null) {
+            giveaways = dbGiveaways;
+            console.log(`✅ ${giveaways.length} giveaways chargés depuis MySQL`);
+            return;
+        }
+    }
+    
+    // Fallback sur JSON
     try {
         const data = await fs.readFile(GIVEAWAYS_FILE, 'utf8');
         giveaways = JSON.parse(data);
-        console.log(`✅ ${giveaways.length} giveaways chargés`);
+        console.log(`✅ ${giveaways.length} giveaways chargés depuis JSON`);
     } catch (error) {
         if (error.code === 'ENOENT') {
             giveaways = [];
@@ -174,9 +213,25 @@ async function loadGiveaways() {
 }
 
 async function saveGiveaways() {
+    // Sauvegarder dans MySQL si disponible
+    if (isDatabaseEnabled()) {
+        const success = await saveAllGiveaways(giveaways);
+        if (success) {
+            // Sauvegarder aussi dans JSON comme backup
+            try {
+                await fs.writeFile(GIVEAWAYS_FILE, JSON.stringify(giveaways, null, 2), 'utf8');
+                console.log('💾 Giveaways sauvegardés (MySQL + JSON backup)');
+            } catch (error) {
+                console.log('💾 Giveaways sauvegardés (MySQL uniquement)');
+            }
+            return;
+        }
+    }
+    
+    // Fallback sur JSON
     try {
         await fs.writeFile(GIVEAWAYS_FILE, JSON.stringify(giveaways, null, 2), 'utf8');
-        console.log('💾 Giveaways sauvegardés');
+        console.log('💾 Giveaways sauvegardés (JSON)');
     } catch (error) {
         console.error('❌ Erreur lors de la sauvegarde des giveaways:', error);
     }
@@ -477,6 +532,9 @@ const client = new Client({
 client.once('clientReady', async () => {
     console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
     
+    // Initialiser la base de données
+    await initDatabase();
+    
     await loadBrainrots();
     await loadConfig();
     await loadGiveaways();
@@ -599,6 +657,15 @@ client.on('interactionCreate', async interaction => {
                 break;
             case 'stats':
                 await handleStats(interaction);
+                break;
+            case 'reset':
+                await handleReset(interaction);
+                break;
+            case 'export':
+                await handleExport(interaction);
+                break;
+            case 'import':
+                await handleImport(interaction);
                 break;
         }
     } catch (error) {
@@ -1372,6 +1439,120 @@ async function handleStats(interaction) {
     await interaction.reply({ embeds: [embed], flags: 64 });
 }
 
+async function handleReset(interaction) {
+    await interaction.reply({
+        content: '⚠️ **ATTENTION** : Cette action va supprimer TOUS les brainrots de la base de données !\n\nÊtes-vous absolument sûr ? Tapez `CONFIRMER` pour continuer.',
+        flags: 64
+    });
+    
+    // Créer un collecteur de messages
+    const filter = m => m.author.id === interaction.user.id && m.content === 'CONFIRMER';
+    const collector = interaction.channel.createMessageCollector({ filter, time: 15000, max: 1 });
+    
+    collector.on('collect', async () => {
+        const count = brainrots.length;
+        brainrots = [];
+        await saveBrainrots();
+        await updateEmbed(client);
+        
+        await interaction.followUp({
+            content: `✅ Base de données réinitialisée ! ${count} brainrots supprimés.`,
+            flags: 64
+        });
+    });
+    
+    collector.on('end', collected => {
+        if (collected.size === 0) {
+            interaction.followUp({
+                content: '❌ Réinitialisation annulée (timeout).',
+                flags: 64
+            });
+        }
+    });
+}
+
+async function handleExport(interaction) {
+    await interaction.deferReply({ flags: 64 });
+    
+    try {
+        const jsonData = JSON.stringify(brainrots, null, 2);
+        
+        // Diviser en plusieurs messages si trop long (limite Discord: 2000 caractères)
+        if (jsonData.length <= 1900) {
+            await interaction.editReply({
+                content: `✅ Export réussi ! ${brainrots.length} brainrots exportés.\n\`\`\`json\n${jsonData}\n\`\`\``
+            });
+        } else {
+            // Envoyer en fichier si trop long
+            const buffer = Buffer.from(jsonData, 'utf-8');
+            const date = new Date().toISOString().split('T')[0];
+            const filename = `brainrots_export_${date}.json`;
+            
+            await interaction.editReply({
+                content: `✅ Export réussi ! ${brainrots.length} brainrots exportés.\n⚠️ Trop de données pour afficher en texte, fichier joint.`,
+                files: [{
+                    attachment: buffer,
+                    name: filename
+                }]
+            });
+        }
+    } catch (error) {
+        console.error('❌ Erreur export:', error);
+        await interaction.editReply('❌ Erreur lors de l\'export des brainrots.');
+    }
+}
+
+async function handleImport(interaction) {
+    const jsonText = interaction.options.getString('json');
+    
+    await interaction.deferReply({ flags: 64 });
+    
+    try {
+        // Parser le JSON
+        const importedBrainrots = JSON.parse(jsonText);
+        
+        // Valider que c'est un tableau
+        if (!Array.isArray(importedBrainrots)) {
+            return interaction.editReply('❌ Le JSON doit contenir un tableau de brainrots !');
+        }
+        
+        // Valider la structure des brainrots
+        const requiredFields = ['name', 'rarity', 'mutation', 'incomeRate', 'priceEUR'];
+        for (const br of importedBrainrots) {
+            for (const field of requiredFields) {
+                if (!br[field]) {
+                    return interaction.editReply(`❌ Brainrot invalide : champ "${field}" manquant dans "${br.name || 'inconnu'}" !`);
+                }
+            }
+        }
+        
+        // Remplacer les brainrots
+        const oldCount = brainrots.length;
+        brainrots = importedBrainrots;
+        
+        // Recalculer les prix crypto pour tous les brainrots importés
+        await updateAllBrainrotsPrices(brainrots);
+        
+        await saveBrainrots();
+        await updateEmbed(client);
+        
+        await interaction.editReply(
+            `✅ Import réussi !\n` +
+            `📊 Ancien total : ${oldCount} brainrots\n` +
+            `📊 Nouveau total : ${brainrots.length} brainrots\n` +
+            `💰 Prix crypto recalculés automatiquement`
+        );
+    } catch (error) {
+        console.error('❌ Erreur import:', error);
+        
+        if (error instanceof SyntaxError) {
+            await interaction.editReply(`❌ JSON invalide ! Vérifiez la syntaxe.\nErreur: ${error.message}`);
+        } else {
+            await interaction.editReply(`❌ Erreur lors de l'import : ${error.message}`);
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // ENREGISTREMENT DES COMMANDES
 // ═══════════════════════════════════════════════════════════
@@ -1623,6 +1804,25 @@ const commands = [
     new SlashCommandBuilder()
         .setName('stats')
         .setDescription('Affiche les statistiques du market')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    
+    new SlashCommandBuilder()
+        .setName('reset')
+        .setDescription('⚠️ SUPPRIME TOUS LES BRAINROTS (DANGEREUX)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    
+    new SlashCommandBuilder()
+        .setName('export')
+        .setDescription('Exporte tous les brainrots en fichier JSON')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    
+    new SlashCommandBuilder()
+        .setName('import')
+        .setDescription('Importe des brainrots depuis du JSON (remplace tout)')
+        .addStringOption(option =>
+            option.setName('json')
+                .setDescription('Code JSON des brainrots')
+                .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ].map(command => command.toJSON());
 
