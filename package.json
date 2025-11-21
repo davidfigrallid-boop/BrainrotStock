@@ -1,30 +1,65 @@
 {
-  "name": "brainrot-discord-bot",
-  "version": "1.0.0",
-  "description": "Bot Discord pour gérer une base de données de Brainrots avec conversion crypto en temps réel",
-  "main": "index.js",
+  "name": "brainrotsmarket",
+  "version": "2.0.0",
+  "description": "Bot Discord complet pour gérer une marketplace de Brainrots avec conversion crypto temps réel et panel admin web",
+  "main": "app.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "bot": "node src/index.js",
+    "web": "node src/web/server.js",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "test": "echo \"Tests à implémenter\"",
+    "setup": "npm install",
+    "logs": "tail -f logs/*.log"
   },
   "keywords": [
     "discord",
     "bot",
     "brainrot",
     "crypto",
-    "coingecko"
+    "marketplace",
+    "giveaway",
+    "mysql",
+    "coingecko",
+    "coincap"
   ],
-  "author": "",
+  "author": "BrainrotsMarket Contributors",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/votre-username/brainrotsmarket"
+  },
+  "bugs": {
+    "url": "https://github.com/votre-username/brainrotsmarket/issues"
+  },
+  "homepage": "https://github.com/votre-username/brainrotsmarket#readme",
   "dependencies": {
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "mysql2": "^3.6.5"
+    "mysql2": "^3.6.5",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "eslint": "^8.54.0"
   },
   "engines": {
-  "node": "18.x"
-}
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "brainrots.json",
+      "giveaways.json",
+      "config.json",
+      "logs/*",
+      "web-panel/*"
+    ],
+    "delay": 500
+  }
 }
