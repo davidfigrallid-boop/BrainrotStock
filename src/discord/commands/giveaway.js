@@ -7,6 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const giveawayService = require('../../services/giveawayService');
 const logger = require('../../core/logger');
 const { ValidationError, NotFoundError } = require('../../core/errors');
+const TimeParser = require('../../core/parsers/TimeParser');
 
 /**
  * Commande /giveaway - Crée un nouveau giveaway
@@ -29,12 +30,11 @@ const giveawayCommand = {
         .setMinValue(1)
         .setMaxValue(100)
     )
-    .addIntegerOption(option =>
+    .addStringOption(option =>
       option
         .setName('duration')
-        .setDescription('Durée en secondes')
+        .setDescription('Durée (ex: 1h, 30min, 2j, 1sem)')
         .setRequired(true)
-        .setMinValue(60)
     ),
   
   async execute(interaction) {
@@ -44,10 +44,27 @@ const giveawayCommand = {
       const serverId = interaction.guildId;
       const prize = interaction.options.getString('prize');
       const winnersCount = interaction.options.getInteger('winners');
-      const duration = interaction.options.getInteger('duration');
+      const durationStr = interaction.options.getString('duration');
+      
+      // Parser la durée avec TimeParser
+      let durationMs;
+      try {
+        durationMs = TimeParser.parse(durationStr);
+      } catch (error) {
+        return await interaction.editReply({
+          content: `❌ Durée invalide: ${error.message}`
+        });
+      }
+      
+      // Valider que la durée est au minimum 60 secondes
+      if (durationMs < 60000) {
+        return await interaction.editReply({
+          content: '❌ La durée minimale est 1 minute.'
+        });
+      }
       
       // Calculer le temps de fin
-      const endTime = Date.now() + (duration * 1000);
+      const endTime = Date.now() + durationMs;
       
       // Créer le giveaway
       const giveawayId = await giveawayService.create(serverId, {
@@ -67,11 +84,14 @@ const giveawayCommand = {
             .setStyle(ButtonStyle.Primary)
         );
       
+      // Formater la durée pour l'affichage
+      const formattedDuration = TimeParser.format(durationMs);
+      
       // Créer l'embed
       const embed = new EmbedBuilder()
         .setColor('#7B2CBF')
         .setTitle('🎉 Nouveau Giveaway!')
-        .setDescription(`**Prix:** ${prize}\n**Gagnants:** ${winnersCount}\n**Durée:** ${duration}s`)
+        .setDescription(`**Prix:** ${prize}\n**Gagnants:** ${winnersCount}\n**Durée:** ${formattedDuration}`)
         .addFields(
           { name: 'ID', value: String(giveawayId), inline: true },
           { name: 'Participants', value: '0', inline: true },
@@ -81,7 +101,7 @@ const giveawayCommand = {
       
       await interaction.editReply({ embeds: [embed], components: [row] });
       
-      logger.info(`Giveaway créé: ${prize} (${winnersCount} gagnants) - ID: ${giveawayId}`);
+      logger.info(`Giveaway créé: ${prize} (${winnersCount} gagnants, ${formattedDuration}) - ID: ${giveawayId}`);
     } catch (error) {
       logger.error('Erreur commande giveaway:', error);
       const message = error instanceof ValidationError ? error.message : 'Une erreur est survenue.';
@@ -93,7 +113,7 @@ const giveawayCommand = {
 };
 
 /**
- * Commande /gend - Termine un giveaway
+ * Commande /gend - Termine un giveaway et sélectionne les gagnants
  */
 const gendCommand = {
   data: new SlashCommandBuilder()
@@ -105,6 +125,12 @@ const gendCommand = {
         .setDescription('ID du giveaway à terminer')
         .setRequired(true)
         .setMinValue(1)
+    )
+    .addUserOption(option =>
+      option
+        .setName('winner')
+        .setDescription('Utilisateur à désigner comme gagnant (optionnel)')
+        .setRequired(false)
     ),
   
   async execute(interaction) {
@@ -112,9 +138,17 @@ const gendCommand = {
       await interaction.deferReply();
       
       const giveawayId = interaction.options.getInteger('id');
+      const specifiedWinner = interaction.options.getUser('winner');
       
       // Terminer le giveaway
-      const giveaway = await giveawayService.endGiveaway(giveawayId);
+      let giveaway;
+      if (specifiedWinner) {
+        // Giveaway truqué avec gagnant spécifié
+        giveaway = await giveawayService.endGiveawayWithWinner(giveawayId, specifiedWinner.id);
+      } else {
+        // Giveaway normal avec sélection aléatoire
+        giveaway = await giveawayService.endGiveaway(giveawayId);
+      }
       
       if (giveaway.winners.length === 0) {
         return await interaction.editReply({
@@ -133,6 +167,15 @@ const gendCommand = {
         )
         .setTimestamp();
       
+      // Ajouter le statut si truqué
+      if (giveaway.is_rigged) {
+        embed.addFields({
+          name: '⚠️ Statut',
+          value: 'Giveaway truqué',
+          inline: false
+        });
+      }
+      
       // Ajouter les gagnants
       const winnersList = giveaway.winners
         .map(winnerId => `<@${winnerId}>`)
@@ -146,7 +189,7 @@ const gendCommand = {
       
       await interaction.editReply({ embeds: [embed] });
       
-      logger.info(`Giveaway terminé: ID ${giveawayId}, ${giveaway.winners.length} gagnants`);
+      logger.info(`Giveaway terminé: ID ${giveawayId}, ${giveaway.winners.length} gagnants${giveaway.is_rigged ? ' (truqué)' : ''}`);
     } catch (error) {
       logger.error('Erreur commande gend:', error);
       const message = error instanceof NotFoundError ? 'Giveaway non trouvé.' : error.message;

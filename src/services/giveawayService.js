@@ -345,6 +345,62 @@ class GiveawayService {
       throw error;
     }
   }
+
+  /**
+   * Termine un giveaway avec un gagnant spécifié (giveaway truqué)
+   * @param {number} id - ID du giveaway
+   * @param {string} winnerId - ID de l'utilisateur à désigner comme gagnant
+   * @returns {Promise<Object>} Giveaway terminé avec le gagnant spécifié
+   */
+  async endGiveawayWithWinner(id, winnerId) {
+    try {
+      if (!id) {
+        throw new ValidationError('id is required');
+      }
+      if (!winnerId || typeof winnerId !== 'string') {
+        throw new ValidationError('winnerId must be a non-empty string', 'winnerId');
+      }
+
+      const giveaway = await giveawayRepository.findById(id);
+      if (!giveaway) {
+        throw new NotFoundError('Giveaway', id);
+      }
+
+      // Vérifier que le giveaway n'est pas déjà terminé
+      if (giveaway.ended) {
+        throw new ValidationError('Giveaway is already ended');
+      }
+
+      // Vérifier que l'utilisateur est un participant
+      if (!giveaway.participants.includes(winnerId)) {
+        throw new ValidationError(`User ${winnerId} is not a participant in this giveaway`);
+      }
+
+      // Utiliser le gagnant spécifié
+      const winners = [winnerId];
+
+      // Mettre à jour le giveaway avec le statut truqué
+      await giveawayRepository.update(id, {
+        ended: true,
+        winners,
+        chosen_winner_id: winnerId,
+        is_rigged: true
+      });
+
+      logger.info(`Giveaway truqué terminé: ID ${id}, gagnant spécifié: ${winnerId}`);
+
+      return {
+        ...giveaway,
+        ended: true,
+        winners,
+        chosen_winner_id: winnerId,
+        is_rigged: true
+      };
+    } catch (error) {
+      logger.error('Erreur fin giveaway truqué:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new GiveawayService();

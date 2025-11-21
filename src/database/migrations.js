@@ -62,6 +62,8 @@ async function runMigrations() {
         ended BOOLEAN DEFAULT FALSE,
         winners JSON,
         participants JSON,
+        chosen_winner_id VARCHAR(20),
+        is_rigged BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_server_id (server_id),
         INDEX idx_server_ended (server_id, ended),

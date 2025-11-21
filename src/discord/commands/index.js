@@ -8,6 +8,7 @@ const brainrotCommands = require('./brainrot');
 const giveawayCommands = require('./giveaway');
 const logger = require('../../core/logger');
 const commandHandler = require('../handlers/commandHandler');
+const listCommandHandlers = require('../handlers/listCommandHandlers');
 
 /**
  * Tableau de toutes les commandes
@@ -46,6 +47,20 @@ async function loadCommands(client) {
       
       logger.debug(`Commande chargée: ${command.data.name}`);
     });
+    
+    // Register list command button handlers
+    client.handlers = client.handlers || new Map();
+    client.handlers.set('list_rarity', listCommandHandlers.handleRarityButton);
+    client.handlers.set('list_mutation', listCommandHandlers.handleMutationButton);
+    client.handlers.set('list_traits', listCommandHandlers.handleTraitsButton);
+    client.handlers.set('list_price', listCommandHandlers.handlePriceButton);
+    client.handlers.set('list_revenue', listCommandHandlers.handleRevenueButton);
+    client.handlers.set('list_alphabetic', listCommandHandlers.handleAlphabeticButton);
+    client.handlers.set('list_next', listCommandHandlers.handleNextButton);
+    client.handlers.set('list_prev', listCommandHandlers.handlePrevButton);
+    client.handlers.set('list_page_info', () => {}); // No-op for page info button
+    
+    logger.debug('List command button handlers registered');
     
     logger.info(`✅ ${client.commands.size} commandes chargées avec succès`);
     return allCommands;

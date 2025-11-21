@@ -3,88 +3,93 @@
  * Commandes: list, addbrainrot, removebrainrot, updatebrainrot, addtrait, removetrait, showcompte, stats
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const brainrotService = require('../../services/brainrotService');
 const logger = require('../../core/logger');
 const { ValidationError, NotFoundError } = require('../../core/errors');
+const { MUTATIONS, isValidMutation, isValidTrait } = require('../../core/enums');
+const NumberParser = require('../../core/parsers/NumberParser');
 
 /**
- * Commande /list - Affiche tous les brainrots
+ * Commande /list - Affiche tous les brainrots avec interface améliorée
  */
+const EmbedFormatter = require('../../core/formatters/EmbedFormatter');
+
 const listCommand = {
   data: new SlashCommandBuilder()
     .setName('list')
-    .setDescription('Affiche tous les brainrots du serveur')
-    .addStringOption(option =>
-      option
-        .setName('rarity')
-        .setDescription('Filtrer par rareté')
-        .setRequired(false)
-        .addChoices(
-          { name: 'Common', value: 'Common' },
-          { name: 'Rare', value: 'Rare' },
-          { name: 'Epic', value: 'Epic' },
-          { name: 'Legendary', value: 'Legendary' }
-        )
-    )
-    .addStringOption(option =>
-      option
-        .setName('mutation')
-        .setDescription('Filtrer par mutation')
-        .setRequired(false)
-    ),
+    .setDescription('Affiche tous les brainrots du serveur avec interface améliorée'),
   
   async execute(interaction) {
     try {
       await interaction.deferReply();
       
       const serverId = interaction.guildId;
-      const rarityFilter = interaction.options.getString('rarity');
-      const mutationFilter = interaction.options.getString('mutation');
-      
       const brainrots = await brainrotService.getAll(serverId);
       
-      // Appliquer les filtres
-      let filtered = brainrots;
-      if (rarityFilter) {
-        filtered = filtered.filter(b => b.rarity === rarityFilter);
-      }
-      if (mutationFilter) {
-        filtered = filtered.filter(b => b.mutation === mutationFilter);
-      }
-      
-      if (filtered.length === 0) {
+      if (brainrots.length === 0) {
         return await interaction.editReply({
-          content: '❌ Aucun brainrot trouvé avec ces critères.'
+          content: '❌ Aucun brainrot trouvé sur ce serveur.'
         });
       }
       
-      // Créer les embeds
-      const embeds = [];
-      for (let i = 0; i < filtered.length; i += 10) {
-        const chunk = filtered.slice(i, i + 10);
-        const embed = new EmbedBuilder()
-          .setColor('#7B2CBF')
-          .setTitle(`🧠 Brainrots (${filtered.length} total)`)
-          .setDescription(`Page ${Math.floor(i / 10) + 1}/${Math.ceil(filtered.length / 10)}`)
-          .setTimestamp();
-        
-        chunk.forEach(brainrot => {
-          const traits = brainrot.traits && brainrot.traits.length > 0 
-            ? brainrot.traits.join(', ')
-            : 'Aucun';
-          
-          embed.addFields({
-            name: `${brainrot.name} (ID: ${brainrot.id})`,
-            value: `**Rareté:** ${brainrot.rarity}\n**Mutation:** ${brainrot.mutation}\n**Prix EUR:** €${brainrot.priceEUR}\n**Revenu:** €${brainrot.incomeRate}\n**Traits:** ${traits}\n**Quantité:** ${brainrot.quantite}`,
-            inline: false
-          });
-        });
-        
-        embeds.push(embed);
-      }
+      // Create main embed with category buttons
+      const mainEmbed = new EmbedBuilder()
+        .setColor('#7B2CBF')
+        .setTitle('🧠 Brainrots Shop')
+        .setDescription('Sélectionnez une catégorie pour voir les brainrots')
+        .addFields(
+          { name: '📊 Catégories disponibles', value: '• Rareté\n• Mutation\n• Traits\n• Prix\n• Revenue\n• Alphabétique', inline: false }
+        )
+        .setTimestamp();
       
-      await interaction.editReply({ embeds: [embeds[0]] });
+      // Create category buttons
+      const categoryRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('list_rarity')
+            .setLabel('Rareté')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('list_mutation')
+            .setLabel('Mutation')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('list_traits')
+            .setLabel('Traits')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('list_price')
+            .setLabel('Prix')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('list_revenue')
+            .setLabel('Revenue')
+            .setStyle(ButtonStyle.Primary)
+        );
+      
+      const alphabeticRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('list_alphabetic')
+            .setLabel('Alphabétique')
+            .setStyle(ButtonStyle.Primary)
+        );
+      
+      await interaction.editReply({ 
+        embeds: [mainEmbed],
+        components: [categoryRow, alphabeticRow]
+      });
+      
+      // Store brainrots in interaction for button handlers
+      interaction.client.listCache = interaction.client.listCache || {};
+      interaction.client.listCache[interaction.id] = {
+        brainrots,
+        serverId,
+        currentCategory: null,
+        currentPage: 0
+      };
+      
     } catch (error) {
       logger.error('Erreur commande list:', error);
       await interaction.editReply({
@@ -114,29 +119,50 @@ const addBrainrotCommand = {
         .setRequired(true)
         .addChoices(
           { name: 'Common', value: 'Common' },
+          { name: 'Uncommon', value: 'Uncommon' },
           { name: 'Rare', value: 'Rare' },
           { name: 'Epic', value: 'Epic' },
-          { name: 'Legendary', value: 'Legendary' }
+          { name: 'Legendary', value: 'Legendary' },
+          { name: 'Mythical', value: 'Mythical' },
+          { name: 'Brainrot God', value: 'Brainrot God' },
+          { name: 'Secret', value: 'Secret' },
+          { name: 'OG', value: 'OG' }
         )
     )
-    .addNumberOption(option =>
+    .addStringOption(option =>
       option
         .setName('price_eur')
-        .setDescription('Prix en EUR')
+        .setDescription('Prix en EUR (supporte les abréviations: 1k, 1M, 1B, etc.)')
         .setRequired(true)
-        .setMinValue(0)
     )
-    .addNumberOption(option =>
+    .addStringOption(option =>
       option
         .setName('income_rate')
-        .setDescription('Revenu en EUR')
+        .setDescription('Revenu en EUR/s (supporte les abréviations: 1k, 1M, 1B, etc.)')
         .setRequired(true)
-        .setMinValue(0)
     )
     .addStringOption(option =>
       option
         .setName('mutation')
-        .setDescription('Mutation (Default, Shiny, etc.)')
+        .setDescription('Mutation (obligatoire)')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Default', value: 'Default' },
+          { name: 'Gold', value: 'Gold' },
+          { name: 'Diamond', value: 'Diamond' },
+          { name: 'Rainbow', value: 'Rainbow' },
+          { name: 'Bloodrot', value: 'Bloodrot' },
+          { name: 'Candy', value: 'Candy' },
+          { name: 'Lava', value: 'Lava' },
+          { name: 'Galaxy', value: 'Galaxy' },
+          { name: 'Yin-Yang', value: 'Yin-Yang' },
+          { name: 'Radioactive', value: 'Radioactive' }
+        )
+    )
+    .addStringOption(option =>
+      option
+        .setName('traits')
+        .setDescription('Traits (séparés par des virgules, ex: Flying,Electric)')
         .setRequired(false)
     )
     .addStringOption(option =>
@@ -158,17 +184,64 @@ const addBrainrotCommand = {
       await interaction.deferReply();
       
       const serverId = interaction.guildId;
+      
+      // Parse price with abbreviations
+      let priceEUR;
+      try {
+        priceEUR = NumberParser.parse(interaction.options.getString('price_eur'));
+      } catch (error) {
+        return await interaction.editReply({
+          content: `❌ Prix invalide: ${error.message}`
+        });
+      }
+      
+      // Parse income rate with abbreviations
+      let incomeRate;
+      try {
+        incomeRate = NumberParser.parse(interaction.options.getString('income_rate'));
+      } catch (error) {
+        return await interaction.editReply({
+          content: `❌ Revenu invalide: ${error.message}`
+        });
+      }
+      
+      // Validate mutation
+      const mutation = interaction.options.getString('mutation');
+      if (!isValidMutation(mutation)) {
+        return await interaction.editReply({
+          content: `❌ Mutation invalide: "${mutation}". Mutations valides: ${Object.values(MUTATIONS).join(', ')}`
+        });
+      }
+      
+      // Parse and validate traits
+      let traits = [];
+      const traitsInput = interaction.options.getString('traits');
+      if (traitsInput) {
+        traits = traitsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        
+        // Validate each trait
+        const invalidTraits = traits.filter(trait => !isValidTrait(trait));
+        if (invalidTraits.length > 0) {
+          return await interaction.editReply({
+            content: `❌ Traits invalides: ${invalidTraits.join(', ')}`
+          });
+        }
+      }
+      
       const data = {
         name: interaction.options.getString('name'),
         rarity: interaction.options.getString('rarity'),
-        priceEUR: interaction.options.getNumber('price_eur'),
-        incomeRate: interaction.options.getNumber('income_rate'),
-        mutation: interaction.options.getString('mutation') || 'Default',
+        priceEUR,
+        incomeRate,
+        mutation,
+        traits,
         compte: interaction.options.getString('compte'),
         quantite: interaction.options.getInteger('quantite') || 1
       };
       
       const id = await brainrotService.create(serverId, data);
+      
+      const traitsDisplay = traits.length > 0 ? traits.join(', ') : 'Aucun';
       
       const embed = new EmbedBuilder()
         .setColor('#00FF00')
@@ -179,7 +252,8 @@ const addBrainrotCommand = {
           { name: 'Rareté', value: data.rarity, inline: true },
           { name: 'Mutation', value: data.mutation, inline: true },
           { name: 'Prix EUR', value: `€${data.priceEUR}`, inline: true },
-          { name: 'Revenu', value: `€${data.incomeRate}`, inline: true }
+          { name: 'Revenu', value: `€${data.incomeRate}`, inline: true },
+          { name: 'Traits', value: traitsDisplay, inline: false }
         )
         .setTimestamp();
       

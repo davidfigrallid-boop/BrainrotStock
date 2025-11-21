@@ -161,6 +161,14 @@ class GiveawayRepository extends BaseRepository {
         updates.push('participants = ?');
         values.push(JSON.stringify(data.participants));
       }
+      if (data.chosen_winner_id !== undefined) {
+        updates.push('chosen_winner_id = ?');
+        values.push(data.chosen_winner_id);
+      }
+      if (data.is_rigged !== undefined) {
+        updates.push('is_rigged = ?');
+        values.push(data.is_rigged);
+      }
 
       if (updates.length === 0) {
         return false;

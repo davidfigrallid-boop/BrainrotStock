@@ -6,6 +6,7 @@
 const brainrotRepository = require('../database/repositories/brainrotRepository');
 const logger = require('../core/logger');
 const { ValidationError, NotFoundError } = require('../core/errors');
+const { isValidRarity, isValidMutation, isValidTrait } = require('../core/enums');
 
 class BrainrotService {
   /**
@@ -76,6 +77,9 @@ class BrainrotService {
       if (data.priceEUR === undefined || data.priceEUR === null) {
         throw new ValidationError('priceEUR is required', 'priceEUR');
       }
+      if (!data.mutation) {
+        throw new ValidationError('mutation is required', 'mutation');
+      }
 
       // Validation des valeurs numériques
       if (typeof data.incomeRate !== 'number' || data.incomeRate < 0) {
@@ -86,20 +90,32 @@ class BrainrotService {
       }
 
       // Validation de la rareté
-      const validRarities = ['Common', 'Rare', 'Epic', 'Legendary'];
-      if (!validRarities.includes(data.rarity)) {
-        throw new ValidationError(`rarity must be one of: ${validRarities.join(', ')}`, 'rarity');
+      if (!isValidRarity(data.rarity)) {
+        throw new ValidationError(`Invalid rarity: "${data.rarity}"`, 'rarity');
+      }
+
+      // Validation de la mutation
+      if (!isValidMutation(data.mutation)) {
+        throw new ValidationError(`Invalid mutation: "${data.mutation}"`, 'mutation');
+      }
+
+      // Validation des traits
+      const traits = Array.isArray(data.traits) ? data.traits : [];
+      for (const trait of traits) {
+        if (!isValidTrait(trait)) {
+          throw new ValidationError(`Invalid trait: "${trait}"`, 'traits');
+        }
       }
 
       const brainrotData = {
         server_id: serverId,
         name: data.name,
         rarity: data.rarity,
-        mutation: data.mutation || 'Default',
+        mutation: data.mutation,
         incomeRate: data.incomeRate,
         priceEUR: data.priceEUR,
         compte: data.compte || null,
-        traits: Array.isArray(data.traits) ? data.traits : [],
+        traits,
         quantite: data.quantite || 1
       };
 
@@ -131,10 +147,15 @@ class BrainrotService {
       }
 
       // Validation des données si fournies
-      if (data.rarity) {
-        const validRarities = ['Common', 'Rare', 'Epic', 'Legendary'];
-        if (!validRarities.includes(data.rarity)) {
-          throw new ValidationError(`rarity must be one of: ${validRarities.join(', ')}`, 'rarity');
+      if (data.rarity !== undefined) {
+        if (!isValidRarity(data.rarity)) {
+          throw new ValidationError(`Invalid rarity: "${data.rarity}"`, 'rarity');
+        }
+      }
+
+      if (data.mutation !== undefined) {
+        if (!isValidMutation(data.mutation)) {
+          throw new ValidationError(`Invalid mutation: "${data.mutation}"`, 'mutation');
         }
       }
 
@@ -144,6 +165,16 @@ class BrainrotService {
 
       if (data.priceEUR !== undefined && (typeof data.priceEUR !== 'number' || data.priceEUR < 0)) {
         throw new ValidationError('priceEUR must be a positive number', 'priceEUR');
+      }
+
+      // Validate traits if provided
+      if (data.traits !== undefined) {
+        const traits = Array.isArray(data.traits) ? data.traits : [];
+        for (const trait of traits) {
+          if (!isValidTrait(trait)) {
+            throw new ValidationError(`Invalid trait: "${trait}"`, 'traits');
+          }
+        }
       }
 
       const updateData = {};
