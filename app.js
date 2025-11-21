@@ -3,11 +3,10 @@
  * Lance le bot Discord et le serveur web
  */
 
-require('dotenv').config();
 const logger = require('./src/config/logger');
+const config = require('./src/config');
 const BrainrotsBot = require('./src/bot/bot');
 const WebServer = require('./src/web/server');
-const config = require('./src/config');
 
 // Gestion des erreurs non capturées
 process.on('unhandledRejection', (reason, promise) => {
@@ -36,6 +35,20 @@ process.on('SIGTERM', () => {
 async function start() {
     try {
         logger.info('🚀 Démarrage de BrainrotsMarket v2.0.0');
+        logger.info(`Environnement: ${config.env}`);
+        
+        // Valider la configuration
+        if (!config.discord.token || !config.discord.clientId) {
+            throw new Error('Variables Discord manquantes (DISCORD_TOKEN, CLIENT_ID)');
+        }
+        
+        // Initialiser la base de données
+        const db = require('./src/services/database');
+        await db.initialize();
+        
+        // Exécuter les migrations
+        const { runMigrations } = require('./src/database/migrations');
+        await runMigrations();
         
         // Démarrer le bot Discord
         const bot = new BrainrotsBot();

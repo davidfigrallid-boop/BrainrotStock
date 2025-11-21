@@ -3,10 +3,12 @@
  * Gestion complète du bot Discord avec commandes, handlers et événements
  */
 
-require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
 const logger = require('../config/logger');
+const config = require('../config');
 const { createCommands } = require('../config/commands');
+const brainrotsHandlers = require('./handlers/brainrots');
+const giveawaysHandlers = require('./handlers/giveaways');
 
 class BrainrotsBot {
     constructor() {
@@ -16,11 +18,7 @@ class BrainrotsBot {
         
         this.commands = new Map();
         this.handlers = new Map();
-        this.config = {
-            token: process.env.DISCORD_TOKEN,
-            clientId: process.env.CLIENT_ID,
-            guildId: process.env.GUILD_ID
-        };
+        this.config = config.discord;
     }
 
     /**
@@ -129,7 +127,49 @@ class BrainrotsBot {
         }
         
         logger.info(`Commande exécutée: ${interaction.commandName} par ${interaction.user.tag}`);
-        // Implémentation des handlers de commandes
+        
+        try {
+            // Handlers brainrots
+            switch (interaction.commandName) {
+                case 'list':
+                    return brainrotsHandlers.handleList(interaction);
+                case 'addbrainrot':
+                    return brainrotsHandlers.handleAddBrainrot(interaction);
+                case 'removebrainrot':
+                    return brainrotsHandlers.handleRemoveBrainrot(interaction);
+                case 'updatebrainrot':
+                    return brainrotsHandlers.handleUpdateBrainrot(interaction);
+                case 'addtrait':
+                    return brainrotsHandlers.handleAddTrait(interaction);
+                case 'removetrait':
+                    return brainrotsHandlers.handleRemoveTrait(interaction);
+                case 'showcompte':
+                    return brainrotsHandlers.handleShowCompte(interaction);
+                case 'stats':
+                    return brainrotsHandlers.handleStats(interaction);
+                
+                // Handlers giveaways
+                case 'giveaway':
+                    return giveawaysHandlers.handleGiveaway(interaction);
+                case 'gend':
+                    return giveawaysHandlers.handleGiveawayEnd(interaction);
+                case 'greroll':
+                    return giveawaysHandlers.handleGiveawayReroll(interaction);
+                case 'glist':
+                    return giveawaysHandlers.handleGiveawayList(interaction);
+                
+                default:
+                    await interaction.reply({ 
+                        content: `✅ Commande ${interaction.commandName} en cours de développement...`, 
+                        flags: 64 
+                    });
+            }
+        } catch (error) {
+            logger.error(`Erreur commande ${interaction.commandName}:`, error);
+            if (!interaction.replied) {
+                await interaction.reply({ content: '❌ Erreur lors de l\'exécution', flags: 64 });
+            }
+        }
     }
 
     /**
@@ -137,7 +177,19 @@ class BrainrotsBot {
      */
     async handleButton(interaction) {
         logger.info(`Bouton cliqué: ${interaction.customId} par ${interaction.user.tag}`);
-        // Implémentation des handlers de boutons
+        
+        try {
+            // Les handlers spécifiques seront implémentés dans les phases suivantes
+            await interaction.reply({ 
+                content: '✅ Bouton en cours de développement...', 
+                flags: 64 
+            });
+        } catch (error) {
+            logger.error(`Erreur bouton ${interaction.customId}:`, error);
+            if (!interaction.replied) {
+                await interaction.reply({ content: '❌ Erreur lors de l\'exécution', flags: 64 });
+            }
+        }
     }
 
     /**

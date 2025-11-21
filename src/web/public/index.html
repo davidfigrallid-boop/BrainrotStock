@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainrotsMarket - Panel Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>🧠 BrainrotsMarket</h1>
+                <p>Panel Admin v2.0.0</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-page="dashboard">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-page="brainrots">
+                    <span class="icon">🧠</span>
+                    <span>Brainrots</span>
+                </button>
+                <button class="nav-item" data-page="giveaways">
+                    <span class="icon">🎁</span>
+                    <span>Giveaways</span>
+                </button>
+                <button class="nav-item" data-page="crypto">
+                    <span class="icon">💰</span>
+                    <span>Crypto</span>
+                </button>
+                <button class="nav-item" data-page="settings">
+                    <span class="icon">⚙️</span>
+                    <span>Paramètres</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="server-selector">
+                    <label>Serveur</label>
+                    <select id="server-select">
+                        <option value="">Choisir un serveur...</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2 id="page-title">Dashboard</h2>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator">
+                        <span class="status-dot" id="api-status"></span>
+                        <span id="api-status-text">Vérification...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Pages Container -->
+            <div class="pages-container">
+                <!-- Dashboard Page -->
+                <div class="page active" id="page-dashboard">
+                    <div class="dashboard-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">🧠</div>
+                            <div class="stat-content">
+                                <div class="stat-label">Total Brainrots</div>
+                                <div class="stat-value" id="stat-total-brainrots">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💰</div>
+                            <div class="stat-content">
+                                <div class="stat-label">Valeur Totale</div>
+                                <div class="stat-value" id="stat-total-value">0 EUR</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-content">
+                                <div class="stat-label">Types Uniques</div>
+                                <div class="stat-value" id="stat-unique-types">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎁</div>
+                            <div class="stat-content">
+                                <div class="stat-label">Giveaways Actifs</div>
+                                <div class="stat-value" id="stat-active-giveaways">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3>Répartition par Rareté</h3>
+                        <div class="rarity-chart" id="rarity-chart"></div>
+                    </div>
+                </div>
+
+                <!-- Brainrots Page -->
+                <div class="page" id="page-brainrots">
+                    <div class="page-header">
+                        <h3>Gestion des Brainrots</h3>
+                        <button class="btn btn-primary" id="btn-add-brainrot">+ Ajouter</button>
+                    </div>
+
+                    <div class="filters">
+                        <input type="text" id="filter-name" placeholder="Rechercher par nom...">
+                        <select id="filter-rarity">
+                            <option value="">Toutes les raretés</option>
+                            <option value="Common">Common</option>
+                            <option value="Rare">Rare</option>
+                            <option value="Epic">Epic</option>
+                            <option value="Legendary">Legendary</option>
+                            <option value="Mythic">Mythic</option>
+                            <option value="Brainrot God">Brainrot God</option>
+                            <option value="Secret">Secret</option>
+                            <option value="OG">OG</option>
+                        </select>
+                        <select id="filter-mutation">
+                            <option value="">Toutes les mutations</option>
+                            <option value="Default">Default</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Diamond">Diamond</option>
+                            <option value="Rainbow">Rainbow</option>
+                            <option value="Lava">Lava</option>
+                        </select>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Rareté</th>
+                                    <th>Mutation</th>
+                                    <th>Prix EUR</th>
+                                    <th>Revenu/s</th>
+                                    <th>Quantité</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="brainrots-table-body">
+                                <tr class="empty-state">
+                                    <td colspan="7">Sélectionnez un serveur pour voir les brainrots</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Giveaways Page -->
+                <div class="page" id="page-giveaways">
+                    <div class="page-header">
+                        <h3>Gestion des Giveaways</h3>
+                        <button class="btn btn-primary" id="btn-add-giveaway">+ Créer</button>
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="active">Actifs</button>
+                        <button class="tab-btn" data-tab="ended">Terminés</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-active">
+                        <div class="giveaways-grid" id="active-giveaways"></div>
+                    </div>
+
+                    <div class="tab-content" id="tab-ended">
+                        <div class="giveaways-grid" id="ended-giveaways"></div>
+                    </div>
+                </div>
+
+                <!-- Crypto Page -->
+                <div class="page" id="page-crypto">
+                    <div class="page-header">
+                        <h3>Convertisseur Crypto</h3>
+                        <button class="btn btn-secondary" id="btn-refresh-prices">🔄 Rafraîchir</button>
+                    </div>
+
+                    <div class="crypto-converter">
+                        <div class="converter-section">
+                            <label>Montant EUR</label>
+                            <input type="number" id="eur-amount" placeholder="100" value="100">
+                        </div>
+
+                        <div class="converter-section">
+                            <label>Crypto</label>
+                            <select id="crypto-select">
+                                <option value="BTC">Bitcoin (BTC)</option>
+                                <option value="ETH">Ethereum (ETH)</option>
+                                <option value="SOL">Solana (SOL)</option>
+                                <option value="USDT">Tether (USDT)</option>
+                                <option value="LTC">Litecoin (LTC)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" id="btn-convert">Convertir</button>
+                    </div>
+
+                    <div id="conversion-result" class="conversion-result" style="display: none;">
+                        <p id="result-text"></p>
+                    </div>
+
+                    <div class="prices-grid" id="prices-grid"></div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="page-settings">
+                    <div class="settings-section">
+                        <h3>À propos</h3>
+                        <div class="info-box">
+                            <p><strong>Version:</strong> 2.0.0</p>
+                            <p><strong>API:</strong> <span id="api-version">Vérification...</span></p>
+                            <p><strong>Base de données:</strong> MySQL</p>
+                            <p><strong>Hébergement:</strong> Railway</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Documentation</h3>
+                        <div class="doc-links">
+                            <a href="/README.md" target="_blank" class="doc-link">📖 README</a>
+                            <a href="/SETUP_GUIDE.md" target="_blank" class="doc-link">🚀 Guide Déploiement</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="modal-brainrot">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Ajouter un Brainrot</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="form-brainrot" class="modal-form">
+                <div class="form-group">
+                    <label>Nom *</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rareté *</label>
+                        <select name="rarity" required>
+                            <option value="">Choisir...</option>
+                            <option value="Common">Common</option>
+                            <option value="Rare">Rare</option>
+                            <option value="Epic">Epic</option>
+                            <option value="Legendary">Legendary</option>
+                            <option value="Mythic">Mythic</option>
+                            <option value="Brainrot God">Brainrot God</option>
+                            <option value="Secret">Secret</option>
+                            <option value="OG">OG</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mutation *</label>
+                        <select name="mutation" required>
+                            <option value="">Choisir...</option>
+                            <option value="Default">Default</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Diamond">Diamond</option>
+                            <option value="Rainbow">Rainbow</option>
+                            <option value="Lava">Lava</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prix EUR *</label>
+                        <input type="text" name="priceEur" placeholder="1000 ou 1k" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Revenu/s *</label>
+                        <input type="text" name="incomeRate" placeholder="100 ou 1k" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Compte</label>
+                        <input type="text" name="compte" placeholder="Optionnel">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité</label>
+                        <input type="number" name="quantite" value="1" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Traits (séparés par des virgules)</label>
+                    <input type="text" name="traits" placeholder="Fire, Taco, Zombie">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-modal-cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-giveaway">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Créer un Giveaway</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="form-giveaway" class="modal-form">
+                <div class="form-group">
+                    <label>Prix *</label>
+                    <input type="text" name="prize" placeholder="Ex: 1000 EUR" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Durée *</label>
+                        <input type="text" name="duration" placeholder="Ex: 1h, 1j, 1sem" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre de gagnants</label>
+                        <input type="number" name="winnersCount" value="1" min="1">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-modal-cancel-giveaway">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

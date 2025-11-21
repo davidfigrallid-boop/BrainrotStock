@@ -4,6 +4,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const config = require('./index');
 
 const LOG_LEVELS = {
     DEBUG: 0,
@@ -29,8 +30,8 @@ const LOG_EMOJIS = {
 
 class Logger {
     constructor(options = {}) {
-        this.level = LOG_LEVELS[options.level?.toUpperCase() || 'INFO'] || LOG_LEVELS.INFO;
-        this.useFile = options.useFile || false;
+        this.level = LOG_LEVELS[options.level?.toUpperCase() || config.logging.level.toUpperCase()] || LOG_LEVELS.INFO;
+        this.useFile = options.useFile !== undefined ? options.useFile : config.logging.useFile;
         this.logDir = options.logDir || path.join(__dirname, '../../logs');
         this.logFile = path.join(this.logDir, `bot-${new Date().toISOString().split('T')[0]}.log`);
     }
@@ -143,9 +144,6 @@ class Logger {
 }
 
 // Instance globale
-const logger = new Logger({
-    level: process.env.LOG_LEVEL || 'INFO',
-    useFile: process.env.LOG_FILE === 'true'
-});
+const logger = new Logger();
 
 module.exports = logger;
