@@ -38,9 +38,17 @@ async function start() {
         logger.info(`Environnement: ${config.env}`);
         
         // Valider la configuration
-        if (!config.discord.token || !config.discord.clientId) {
-            throw new Error('Variables Discord manquantes (DISCORD_TOKEN, CLIENT_ID)');
+        if (!config.discord.token) {
+            throw new Error('DISCORD_TOKEN manquant');
         }
+        if (!config.discord.clientId) {
+            throw new Error('CLIENT_ID manquant');
+        }
+        if (!config.discord.guildId) {
+            throw new Error('GUILD_ID manquant');
+        }
+        
+        logger.info('✅ Configuration Discord validée');
         
         // Initialiser la base de données
         const db = require('./src/services/database');
@@ -50,16 +58,23 @@ async function start() {
         const { runMigrations } = require('./src/database/migrations');
         await runMigrations();
         
+        logger.info('✅ Base de données initialisée');
+        
         // Démarrer le bot Discord
+        logger.info('Démarrage du bot Discord...');
         const bot = new BrainrotsBot();
         bot.start();
         
         // Démarrer le serveur web
+        logger.info('Démarrage du serveur web...');
         const webServer = new WebServer(config.web.port);
         webServer.start();
         
+        logger.success('🎉 BrainrotsMarket démarré avec succès !');
+        
     } catch (error) {
-        logger.error('Erreur lors du démarrage:', error);
+        logger.error('Erreur lors du démarrage:', error.message || error);
+        logger.error('Stack:', error.stack);
         process.exit(1);
     }
 }

@@ -78,22 +78,31 @@ class BrainrotsBot {
             
             const commandsData = Array.from(this.commands.values()).map(cmd => cmd.toJSON());
             
+            logger.info(`Enregistrement de ${commandsData.length} commandes...`);
+            
             // Discord limite à 25 commandes par requête, donc on divise en batches
             const batchSize = 25;
             for (let i = 0; i < commandsData.length; i += batchSize) {
                 const batch = commandsData.slice(i, i + batchSize);
+                const batchNum = Math.floor(i / batchSize) + 1;
                 
-                await rest.put(
-                    Routes.applicationGuildCommands(this.config.clientId, this.config.guildId),
-                    { body: batch }
-                );
-                
-                logger.info(`Batch ${Math.floor(i / batchSize) + 1} enregistré (${batch.length} commandes)`);
+                try {
+                    await rest.put(
+                        Routes.applicationGuildCommands(this.config.clientId, this.config.guildId),
+                        { body: batch }
+                    );
+                    
+                    logger.info(`✅ Batch ${batchNum} enregistré (${batch.length} commandes)`);
+                } catch (batchError) {
+                    logger.error(`Erreur batch ${batchNum}:`, batchError.message);
+                    throw batchError;
+                }
             }
             
             logger.success(`${commandsData.length} commandes enregistrées auprès de Discord`);
         } catch (error) {
-            logger.error('Erreur lors de l\'enregistrement des commandes:', error);
+            logger.error('Erreur lors de l\'enregistrement des commandes:', error.message || error);
+            throw error;
         }
     }
 
