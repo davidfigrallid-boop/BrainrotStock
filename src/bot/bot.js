@@ -79,6 +79,20 @@ class BrainrotsBot {
             const commandsData = Array.from(this.commands.values()).map(cmd => cmd.toJSON());
             
             logger.info(`Enregistrement de ${commandsData.length} commandes...`);
+            console.log('Commandes à enregistrer:', commandsData.length);
+            
+            // Vérifier chaque commande pour les problèmes
+            commandsData.forEach((cmd, idx) => {
+                console.log(`[${idx}] ${cmd.name} - Options: ${cmd.options?.length || 0}`);
+                if (cmd.options) {
+                    cmd.options.forEach((opt, optIdx) => {
+                        console.log(`  [${optIdx}] ${opt.name} - Choices: ${opt.choices?.length || 0}`);
+                        if (opt.choices && opt.choices.length > 25) {
+                            console.warn(`⚠️ ATTENTION: ${cmd.name}.${opt.name} a ${opt.choices.length} choices (max 25)`);
+                        }
+                    });
+                }
+            });
             
             // Discord limite à 25 commandes par requête, donc on divise en batches
             const batchSize = 25;
@@ -87,6 +101,7 @@ class BrainrotsBot {
                 const batchNum = Math.floor(i / batchSize) + 1;
                 
                 try {
+                    console.log(`Envoi batch ${batchNum}...`);
                     await rest.put(
                         Routes.applicationGuildCommands(this.config.clientId, this.config.guildId),
                         { body: batch }
@@ -94,6 +109,7 @@ class BrainrotsBot {
                     
                     logger.info(`✅ Batch ${batchNum} enregistré (${batch.length} commandes)`);
                 } catch (batchError) {
+                    console.error(`Erreur batch ${batchNum}:`, batchError);
                     logger.error(`Erreur batch ${batchNum}:`, batchError.message);
                     throw batchError;
                 }
@@ -101,6 +117,7 @@ class BrainrotsBot {
             
             logger.success(`${commandsData.length} commandes enregistrées auprès de Discord`);
         } catch (error) {
+            console.error('Erreur complète:', error);
             logger.error('Erreur lors de l\'enregistrement des commandes:', error.message || error);
             throw error;
         }

@@ -1,9 +1,9 @@
 /**
- * Configuration centralisée des commandes slash
+ * Configuration centralisée des commandes slash - VERSION SIMPLIFIÉE
+ * Toutes les choices dynamiques ont été retirées pour éviter le problème "Invalid number value"
  */
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { MUTATIONS, TRAITS } = require('../utils/constants');
 
 /**
  * Crée les commandes slash
@@ -31,23 +31,12 @@ function createCommands() {
                     .setRequired(true))
             .addStringOption(option =>
                 option.setName('rarity')
-                    .setDescription('Rareté')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: 'Common', value: 'Common' },
-                        { name: 'Rare', value: 'Rare' },
-                        { name: 'Epic', value: 'Epic' },
-                        { name: 'Legendary', value: 'Legendary' },
-                        { name: 'Mythic', value: 'Mythic' },
-                        { name: 'Brainrot God', value: 'Brainrot God' },
-                        { name: 'Secret', value: 'Secret' },
-                        { name: 'OG', value: 'OG' }
-                    ))
+                    .setDescription('Rareté (Common, Rare, Epic, Legendary, Mythic, Brainrot God, Secret, OG)')
+                    .setRequired(true))
             .addStringOption(option =>
                 option.setName('mutation')
-                    .setDescription('Mutation (obligatoire)')
-                    .setRequired(true)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+                    .setDescription('Mutation (Default, Gold, Diamond, Rainbow, Lava, etc.)')
+                    .setRequired(true))
             .addStringOption(option =>
                 option.setName('income_rate')
                     .setDescription('Taux de revenu par seconde (ex: 100, 1k, 1.5M, 2B)')
@@ -78,15 +67,6 @@ function createCommands() {
                 option.setName('name')
                     .setDescription('Nom du brainrot à supprimer')
                     .setRequired(true))
-            .addStringOption(option =>
-                option.setName('mutation')
-                    .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
-                    .setRequired(false)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-            .addStringOption(option =>
-                option.setName('traits_filter')
-                    .setDescription('Traits pour identifier le brainrot (ex: Fire, Taco)')
-                    .setRequired(false))
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
         new SlashCommandBuilder()
@@ -97,26 +77,20 @@ function createCommands() {
                     .setDescription('Nom du brainrot à modifier')
                     .setRequired(true))
             .addStringOption(option =>
-                option.setName('mutation_filter')
-                    .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
-                    .setRequired(false)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-            .addStringOption(option =>
                 option.setName('income_rate')
-                    .setDescription('Nouveau taux de revenu par seconde (ex: 1k, 1.5M)')
+                    .setDescription('Nouveau taux de revenu par seconde')
                     .setRequired(false))
             .addStringOption(option =>
                 option.setName('new_mutation')
                     .setDescription('Nouvelle mutation')
-                    .setRequired(false)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
+                    .setRequired(false))
             .addStringOption(option =>
                 option.setName('new_traits')
-                    .setDescription('Nouveaux traits séparés par des virgules (ex: Fire, Taco)')
+                    .setDescription('Nouveaux traits séparés par des virgules')
                     .setRequired(false))
             .addStringOption(option =>
                 option.setName('price_eur')
-                    .setDescription('Nouveau prix en euros (ex: 1k, 1.5M)')
+                    .setDescription('Nouveau prix en euros')
                     .setRequired(false))
             .addStringOption(option =>
                 option.setName('compte')
@@ -137,15 +111,9 @@ function createCommands() {
                     .setDescription('Nom du brainrot')
                     .setRequired(true))
             .addStringOption(option =>
-                option.setName('mutation_filter')
-                    .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
-                    .setRequired(false)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-            .addStringOption(option =>
                 option.setName('trait')
                     .setDescription('Trait à ajouter')
-                    .setRequired(true)
-                    .addChoices(...TRAITS.map(t => ({ name: t, value: t }))))
+                    .setRequired(true))
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
         new SlashCommandBuilder()
@@ -156,15 +124,9 @@ function createCommands() {
                     .setDescription('Nom du brainrot')
                     .setRequired(true))
             .addStringOption(option =>
-                option.setName('mutation_filter')
-                    .setDescription('Mutation pour identifier le brainrot (si plusieurs avec même nom)')
-                    .setRequired(false)
-                    .addChoices(...MUTATIONS.map(m => ({ name: m, value: m }))))
-            .addStringOption(option =>
                 option.setName('trait')
                     .setDescription('Trait à retirer')
-                    .setRequired(true)
-                    .addChoices(...TRAITS.map(t => ({ name: t, value: t }))))
+                    .setRequired(true))
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
         new SlashCommandBuilder()
@@ -208,10 +170,6 @@ function createCommands() {
                     .setDescription('Nombre de gagnants (défaut: 1)')
                     .setRequired(false)
                     .setMinValue(1))
-            .addUserOption(option =>
-                option.setName('forced_winner')
-                    .setDescription('Gagnant forcé (optionnel)')
-                    .setRequired(false))
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
         new SlashCommandBuilder()
