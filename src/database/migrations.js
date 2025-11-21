@@ -28,7 +28,7 @@ async function runMigrations() {
         await db.query(`
             CREATE TABLE IF NOT EXISTS brainrots (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                server_id VARCHAR(20) NOT NULL,
+                server_id VARCHAR(20) NOT NULL DEFAULT '0',
                 name VARCHAR(255) NOT NULL,
                 rarity VARCHAR(50) NOT NULL,
                 mutation VARCHAR(50) NOT NULL DEFAULT 'Default',
@@ -39,17 +39,23 @@ async function runMigrations() {
                 quantite INT DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
                 INDEX idx_server_rarity (server_id, rarity),
                 INDEX idx_server_mutation (server_id, mutation)
             )
         `);
+        
+        // Ajouter la colonne server_id si elle n'existe pas (pour les anciennes tables)
+        try {
+            await db.query(`ALTER TABLE brainrots ADD COLUMN server_id VARCHAR(20) NOT NULL DEFAULT '0'`);
+        } catch (e) {
+            // La colonne existe déjà, c'est normal
+        }
 
         // Table des giveaways
         await db.query(`
             CREATE TABLE IF NOT EXISTS giveaways (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                server_id VARCHAR(20) NOT NULL,
+                server_id VARCHAR(20) NOT NULL DEFAULT '0',
                 message_id VARCHAR(20) NOT NULL,
                 channel_id VARCHAR(20) NOT NULL,
                 prize VARCHAR(255) NOT NULL,
@@ -59,11 +65,17 @@ async function runMigrations() {
                 winners JSON,
                 participants JSON,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
                 INDEX idx_server_ended (server_id, ended),
                 INDEX idx_end_time (end_time)
             )
         `);
+        
+        // Ajouter la colonne server_id si elle n'existe pas (pour les anciennes tables)
+        try {
+            await db.query(`ALTER TABLE giveaways ADD COLUMN server_id VARCHAR(20) NOT NULL DEFAULT '0'`);
+        } catch (e) {
+            // La colonne existe déjà, c'est normal
+        }
 
         // Table du cache des prix crypto
         await db.query(`
