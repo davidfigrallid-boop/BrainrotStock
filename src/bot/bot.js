@@ -28,6 +28,17 @@ class BrainrotsBot {
         try {
             logger.info('Initialisation du bot BrainrotsMarket...');
             
+            // Valider la configuration
+            if (!this.config.token) {
+                throw new Error('DISCORD_TOKEN manquant');
+            }
+            if (!this.config.clientId) {
+                throw new Error('CLIENT_ID manquant');
+            }
+            if (!this.config.guildId) {
+                throw new Error('GUILD_ID manquant');
+            }
+            
             // Charger les commandes
             this.loadCommands();
             
@@ -42,7 +53,7 @@ class BrainrotsBot {
             
             logger.success('Bot démarré avec succès');
         } catch (error) {
-            logger.error('Erreur lors de l\'initialisation du bot:', error);
+            logger.error('Erreur lors de l\'initialisation du bot:', error.message || error);
             process.exit(1);
         }
     }
@@ -67,12 +78,20 @@ class BrainrotsBot {
             
             const commandsData = Array.from(this.commands.values()).map(cmd => cmd.toJSON());
             
-            await rest.put(
-                Routes.applicationGuildCommands(this.config.clientId, this.config.guildId),
-                { body: commandsData }
-            );
+            // Discord limite à 25 commandes par requête, donc on divise en batches
+            const batchSize = 25;
+            for (let i = 0; i < commandsData.length; i += batchSize) {
+                const batch = commandsData.slice(i, i + batchSize);
+                
+                await rest.put(
+                    Routes.applicationGuildCommands(this.config.clientId, this.config.guildId),
+                    { body: batch }
+                );
+                
+                logger.info(`Batch ${Math.floor(i / batchSize) + 1} enregistré (${batch.length} commandes)`);
+            }
             
-            logger.success('Commandes enregistrées auprès de Discord');
+            logger.success(`${commandsData.length} commandes enregistrées auprès de Discord`);
         } catch (error) {
             logger.error('Erreur lors de l\'enregistrement des commandes:', error);
         }
