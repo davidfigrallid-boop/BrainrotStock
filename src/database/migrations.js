@@ -32,8 +32,9 @@ async function runMigrations() {
                 name VARCHAR(255) NOT NULL,
                 rarity VARCHAR(50) NOT NULL,
                 mutation VARCHAR(50) NOT NULL DEFAULT 'Default',
-                income_rate BIGINT NOT NULL,
-                price_eur BIGINT NOT NULL,
+                incomeRate BIGINT NOT NULL,
+                priceEUR BIGINT NOT NULL,
+                priceCrypto BIGINT,
                 compte VARCHAR(255),
                 traits JSON,
                 quantite INT DEFAULT 1,
@@ -44,9 +45,15 @@ async function runMigrations() {
             )
         `);
         
-        // Ajouter la colonne server_id si elle n'existe pas (pour les anciennes tables)
+        // Ajouter les colonnes manquantes si elles n'existent pas (pour les anciennes tables)
         try {
             await db.query(`ALTER TABLE brainrots ADD COLUMN server_id VARCHAR(20) NOT NULL DEFAULT '0'`);
+        } catch (e) {
+            // La colonne existe déjà, c'est normal
+        }
+        
+        try {
+            await db.query(`ALTER TABLE brainrots ADD COLUMN priceCrypto BIGINT`);
         } catch (e) {
             // La colonne existe déjà, c'est normal
         }
@@ -56,23 +63,30 @@ async function runMigrations() {
             CREATE TABLE IF NOT EXISTS giveaways (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 server_id VARCHAR(20) NOT NULL DEFAULT '0',
-                message_id VARCHAR(20) NOT NULL,
-                channel_id VARCHAR(20) NOT NULL,
+                messageId VARCHAR(20) NOT NULL,
+                channelId VARCHAR(20) NOT NULL,
                 prize VARCHAR(255) NOT NULL,
                 winners_count INT DEFAULT 1,
-                end_time BIGINT NOT NULL,
+                endTime BIGINT NOT NULL,
                 ended BOOLEAN DEFAULT FALSE,
                 winners JSON,
                 participants JSON,
+                forcedWinner VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_server_ended (server_id, ended),
-                INDEX idx_end_time (end_time)
+                INDEX idx_endTime (endTime)
             )
         `);
         
-        // Ajouter la colonne server_id si elle n'existe pas (pour les anciennes tables)
+        // Ajouter les colonnes manquantes si elles n'existent pas (pour les anciennes tables)
         try {
             await db.query(`ALTER TABLE giveaways ADD COLUMN server_id VARCHAR(20) NOT NULL DEFAULT '0'`);
+        } catch (e) {
+            // La colonne existe déjà, c'est normal
+        }
+        
+        try {
+            await db.query(`ALTER TABLE giveaways ADD COLUMN forcedWinner VARCHAR(20)`);
         } catch (e) {
             // La colonne existe déjà, c'est normal
         }

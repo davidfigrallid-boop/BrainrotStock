@@ -16,7 +16,7 @@ class GiveawaysService {
             const values = [serverId];
 
             if (onlyActive) {
-                sql += ' AND ended = FALSE AND end_time > ?';
+                sql += ' AND ended = FALSE AND endTime > ?';
                 values.push(Date.now());
             }
 
@@ -63,7 +63,7 @@ class GiveawaysService {
     async getByMessageId(messageId) {
         try {
             const giveaway = await db.queryOne(
-                'SELECT * FROM giveaways WHERE message_id = ?',
+                'SELECT * FROM giveaways WHERE messageId = ?',
                 [messageId]
             );
             
@@ -97,7 +97,7 @@ class GiveawaysService {
 
             const result = await db.query(
                 `INSERT INTO giveaways 
-                (server_id, message_id, channel_id, prize, winners_count, end_time, participants)
+                (server_id, messageId, channelId, prize, winners_count, endTime, participants)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     serverId,
@@ -195,7 +195,7 @@ class GiveawaysService {
 
             const newWinners = this.selectWinners(
                 giveaway.participants,
-                giveaway.winners_count
+                giveaway.winnersCount || giveaway.winners_count
             );
 
             await db.query(
@@ -236,7 +236,7 @@ class GiveawaysService {
         try {
             const now = Date.now();
             const giveaways = await db.query(
-                'SELECT * FROM giveaways WHERE ended = FALSE AND end_time <= ?',
+                'SELECT * FROM giveaways WHERE ended = FALSE AND endTime <= ?',
                 [now]
             );
 

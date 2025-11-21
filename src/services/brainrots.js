@@ -74,7 +74,7 @@ class BrainrotsService {
 
             const result = await db.query(
                 `INSERT INTO brainrots 
-                (server_id, name, rarity, mutation, income_rate, price_eur, compte, traits, quantite)
+                (server_id, name, rarity, mutation, incomeRate, priceEUR, compte, traits, quantite)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     serverId,
@@ -118,11 +118,11 @@ class BrainrotsService {
                 values.push(data.mutation);
             }
             if (data.incomeRate !== undefined) {
-                updates.push('income_rate = ?');
+                updates.push('incomeRate = ?');
                 values.push(parsePrice(data.incomeRate));
             }
             if (data.priceEur !== undefined) {
-                updates.push('price_eur = ?');
+                updates.push('priceEUR = ?');
                 values.push(parsePrice(data.priceEur));
             }
             if (data.compte !== undefined) {
@@ -221,7 +221,7 @@ class BrainrotsService {
             const brainrots = await this.getAll(serverId);
             
             const totalBrainrots = brainrots.reduce((sum, br) => sum + (br.quantite || 1), 0);
-            const totalValue = brainrots.reduce((sum, br) => sum + br.price_eur, 0);
+            const totalValue = brainrots.reduce((sum, br) => sum + br.priceEUR, 0);
             
             const byRarity = {};
             brainrots.forEach(br => {

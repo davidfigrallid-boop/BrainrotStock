@@ -37,7 +37,7 @@ async function handleList(interaction) {
                 .setColor(RARITY_HEX_COLORS[rarity])
                 .setDescription(items.map(br => 
                     `**${br.name}** (${br.mutation})\n` +
-                    `💰 ${formatPrice(br.price_eur)} EUR | 📈 ${formatPrice(br.income_rate)}/s\n` +
+                    `💰 ${formatPrice(br.priceEUR)} EUR | 📈 ${formatPrice(br.incomeRate)}/s\n` +
                     `${br.traits?.length > 0 ? `✨ ${br.traits.join(', ')}` : ''}`
                 ).join('\n\n'));
             
@@ -267,7 +267,7 @@ async function handleShowCompte(interaction) {
                 .setColor(0xFFE600)
                 .setDescription(items.map(br => 
                     `**${br.name}** (${br.rarity})\n` +
-                    `💰 ${formatPrice(br.price_eur)} EUR`
+                    `💰 ${formatPrice(br.priceEUR)} EUR`
                 ).join('\n\n'));
             
             embeds.push(embed);
