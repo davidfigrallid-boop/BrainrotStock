@@ -56,11 +56,8 @@ class Application {
         logger.debug(`${loadedCommands.length} commandes enregistrées`);
       }
 
-      // Enregistrer les handlers
-      if (handlers && typeof handlers.loadHandlers === 'function') {
-        await handlers.loadHandlers(this.bot);
-        logger.debug('Handlers enregistrés');
-      }
+      // Les handlers sont déjà chargés via les événements Discord
+      logger.debug('Handlers disponibles');
 
       // Connecter le bot
       await this.bot.connect();

@@ -20,7 +20,7 @@ const allCommands = [
 /**
  * Charge toutes les commandes dans le client Discord et le CommandHandler
  * @param {Client} client - Client Discord
- * @returns {Promise<void>}
+ * @returns {Promise<Array>} Tableau des commandes chargées
  */
 async function loadCommands(client) {
   try {
@@ -48,6 +48,7 @@ async function loadCommands(client) {
     });
     
     logger.info(`✅ ${client.commands.size} commandes chargées avec succès`);
+    return allCommands;
   } catch (error) {
     logger.error('Erreur lors du chargement des commandes:', error);
     throw error;
