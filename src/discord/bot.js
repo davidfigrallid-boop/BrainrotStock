@@ -148,9 +148,19 @@ class DiscordBot {
 
       logger.info(`Enregistrement de ${commands.length} commandes slash...`);
       
-      await guild.commands.set(commands.map(cmd => cmd.data.toJSON()));
+      // Filtrer les commandes valides et convertir en JSON
+      const validCommands = commands
+        .filter(cmd => cmd && cmd.toJSON)
+        .map(cmd => cmd.toJSON());
       
-      logger.success(`${commands.length} commandes slash enregistrées`);
+      if (validCommands.length === 0) {
+        logger.warn('Aucune commande valide à enregistrer');
+        return;
+      }
+      
+      await guild.commands.set(validCommands);
+      
+      logger.success(`${validCommands.length} commandes slash enregistrées`);
     } catch (error) {
       logger.error('Erreur lors de l\'enregistrement des commandes slash', error);
       throw error;
