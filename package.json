@@ -1,12 +1,13 @@
 {
-  "name": "brainrotsmarket",
-  "version": "2.0.0",
+  "name": "brainrotsmarket-v3",
+  "version": "3.0.0",
   "description": "Bot Discord complet pour gérer une marketplace de Brainrots avec conversion crypto temps réel et panel admin web",
   "main": "app.js",
   "type": "commonjs",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
+    "test": "node tests/integration.test.js",
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix"
   },
@@ -18,8 +19,7 @@
     "marketplace",
     "giveaway",
     "mysql",
-    "coingecko",
-    "coincap"
+    "coingecko"
   ],
   "author": "BrainrotsMarket Contributors",
   "license": "MIT",
@@ -39,7 +39,8 @@
     "body-parser": "^1.20.2",
     "helmet": "^7.1.0",
     "express-rate-limit": "^7.1.5",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
@@ -52,7 +53,8 @@
   "nodemonConfig": {
     "ignore": [
       "logs/*",
-      "node_modules/*"
+      "node_modules/*",
+      "public/*"
     ],
     "delay": 500
   }

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests - Gestion des Brainrots</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .test-section {
+            background: rgba(45, 0, 82, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .test-case {
+            background: rgba(45, 0, 82, 0.3);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        .test-case.pass {
+            border-left-color: #22c55e;
+        }
+        .test-case.fail {
+            border-left-color: #ef4444;
+        }
+        .test-result {
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+        .test-result.pass {
+            color: #86efac;
+        }
+        .test-result.fail {
+            color: #fca5a5;
+        }
+        .test-log {
+            background: var(--primary-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 style="color: var(--accent-light); margin-bottom: 2rem;">Tests - Gestion des Brainrots</h1>
+        
+        <div class="test-section">
+            <h2 style="color: var(--accent-light); margin-bottom: 1rem;">Tests Unitaires - UI Manager</h2>
+            <div id="ui-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2 style="color: var(--accent-light); margin-bottom: 1rem;">Tests Unitaires - API Client</h2>
+            <div id="api-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2 style="color: var(--accent-light); margin-bottom: 1rem;">Tests Unitaires - Utils</h2>
+            <div id="utils-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2 style="color: var(--accent-light); margin-bottom: 1rem;">Tests d'Intégration</h2>
+            <div id="integration-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2 style="color: var(--accent-light); margin-bottom: 1rem;">Résumé des Tests</h2>
+            <div id="test-summary" style="color: var(--text-light);">
+                <p>Total: <span id="total-tests">0</span></p>
+                <p style="color: #86efac;">Réussis: <span id="passed-tests">0</span></p>
+                <p style="color: #fca5a5;">Échoués: <span id="failed-tests">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/utils.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/ui.js"></script>
+
+    <script>
+        let totalTests = 0;
+        let passedTests = 0;
+        let failedTests = 0;
+
+        function addTest(section, name, testFn) {
+            totalTests++;
+            const container = document.getElementById(section);
+            const testCase = document.createElement('div');
+            testCase.className = 'test-case';
+
+            try {
+                testFn();
+                testCase.classList.add('pass');
+                testCase.innerHTML = `
+                    <strong>${name}</strong>
+                    <div class="test-result pass">✓ RÉUSSI</div>
+                `;
+                passedTests++;
+            } catch (error) {
+                testCase.classList.add('fail');
+                testCase.innerHTML = `
+                    <strong>${name}</strong>
+                    <div class="test-result fail">✗ ÉCHOUÉ</div>
+                    <div class="test-log">${error.message}</div>
+                `;
+                failedTests++;
+            }
+
+            container.appendChild(testCase);
+            updateSummary();
+        }
+
+        function updateSummary() {
+            document.getElementById('total-tests').textContent = totalTests;
+            document.getElementById('passed-tests').textContent = passedTests;
+            document.getElementById('failed-tests').textContent = failedTests;
+        }
+
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        // ===== Tests UI Manager =====
+
+        addTest('ui-tests', 'UIManager - Création d\'instance', () => {
+            assert(ui instanceof UIManager, 'ui doit être une instance de UIManager');
+        });
+
+        addTest('ui-tests', 'UIManager - Méthode escapeHtml', () => {
+            const result = ui.escapeHtml('<script>alert("test")</script>');
+            assert(result.includes('&lt;'), 'HTML doit être échappé');
+            assert(!result.includes('<script>'), 'Script tags doivent être échappés');
+        });
+
+        addTest('ui-tests', 'UIManager - Méthode getFormData', () => {
+            const form = document.createElement('form');
+            form.id = 'test-form';
+            form.innerHTML = `
+                <input type="text" name="name" value="Test">
+                <input type="number" name="price" value="10.5">
+            `;
+            document.body.appendChild(form);
+
+            const data = ui.getFormData('test-form');
+            assert(data.name === 'Test', 'Doit récupérer le nom');
+            assert(data.price === 10.5, 'Doit convertir le nombre');
+
+            form.remove();
+        });
+
+        addTest('ui-tests', 'UIManager - Méthode validateForm', () => {
+            const form = document.createElement('form');
+            form.id = 'test-form-2';
+            form.innerHTML = `
+                <input type="text" name="name" required>
+            `;
+            document.body.appendChild(form);
+
+            const isValid = ui.validateForm('test-form-2');
+            assert(typeof isValid === 'boolean', 'validateForm doit retourner un booléen');
+
+            form.remove();
+        });
+
+        addTest('ui-tests', 'UIManager - Création formulaire brainrot', () => {
+            const form = ui.createBrainrotForm();
+            assert(form.includes('id="brainrot-form"'), 'Formulaire doit avoir l\'ID brainrot-form');
+            assert(form.includes('name="name"'), 'Formulaire doit avoir le champ name');
+            assert(form.includes('name="rarity"'), 'Formulaire doit avoir le champ rarity');
+            assert(form.includes('name="mutation"'), 'Formulaire doit avoir le champ mutation');
+            assert(form.includes('name="priceEUR"'), 'Formulaire doit avoir le champ priceEUR');
+            assert(form.includes('name="incomeRate"'), 'Formulaire doit avoir le champ incomeRate');
+        });
+
+        addTest('ui-tests', 'UIManager - Création formulaire brainrot avec données', () => {
+            const brainrot = {
+                id: 1,
+                name: 'Test Brainrot',
+                rarity: 'Rare',
+                mutation: 'Shiny',
+                priceEUR: 100,
+                incomeRate: 50,
+                compte: 'Test Account',
+                quantite: 5
+            };
+            const form = ui.createBrainrotForm(brainrot);
+            assert(form.includes('value="Test Brainrot"'), 'Formulaire doit contenir le nom');
+            assert(form.includes('selected'), 'Formulaire doit avoir une option sélectionnée');
+        });
+
+        // ===== Tests API Client =====
+
+        addTest('api-tests', 'APIClient - Création d\'instance', () => {
+            assert(api instanceof APIClient, 'api doit être une instance de APIClient');
+        });
+
+        addTest('api-tests', 'APIClient - Méthode setPassword', () => {
+            api.setPassword('test-password');
+            assert(api.getPassword() === 'test-password', 'Mot de passe doit être défini');
+        });
+
+        addTest('api-tests', 'APIClient - Méthode clearAuth', () => {
+            api.setPassword('test-password');
+            api.clearAuth();
+            assert(api.getPassword() === '', 'Mot de passe doit être vide après clearAuth');
+        });
+
+        addTest('api-tests', 'APIClient - Méthodes brainrots existent', () => {
+            assert(typeof api.getBrainrots === 'function', 'getBrainrots doit être une fonction');
+            assert(typeof api.createBrainrot === 'function', 'createBrainrot doit être une fonction');
+            assert(typeof api.updateBrainrot === 'function', 'updateBrainrot doit être une fonction');
+            assert(typeof api.deleteBrainrot === 'function', 'deleteBrainrot doit être une fonction');
+        });
+
+        // ===== Tests Utils =====
+
+        addTest('utils-tests', 'Utils - formatNumber', () => {
+            const result = Utils.formatNumber(1234.567, 2);
+            assert(result.includes('1'), 'Doit contenir le nombre');
+        });
+
+        addTest('utils-tests', 'Utils - formatDate', () => {
+            const date = new Date('2024-01-15');
+            const result = Utils.formatDate(date);
+            assert(result.includes('15'), 'Doit contenir le jour');
+        });
+
+        addTest('utils-tests', 'Utils - isValidEmail', () => {
+            assert(Utils.isValidEmail('test@example.com') === true, 'Email valide doit retourner true');
+            assert(Utils.isValidEmail('invalid-email') === false, 'Email invalide doit retourner false');
+        });
+
+        addTest('utils-tests', 'Utils - isValidNumber', () => {
+            assert(Utils.isValidNumber(123) === true, 'Nombre valide doit retourner true');
+            assert(Utils.isValidNumber('abc') === false, 'Non-nombre doit retourner false');
+        });
+
+        addTest('utils-tests', 'Utils - Storage', () => {
+            Utils.setStorage('test-key', { value: 'test' });
+            const result = Utils.getStorage('test-key');
+            assert(result.value === 'test', 'Doit récupérer la valeur stockée');
+            Utils.removeStorage('test-key');
+        });
+
+        // ===== Tests d'Intégration =====
+
+        addTest('integration-tests', 'Intégration - Rendu liste brainrots', () => {
+            const container = document.createElement('div');
+            const brainrots = [
+                {
+                    id: 1,
+                    name: 'Brainrot 1',
+                    rarity: 'Common',
+                    mutation: 'Default',
+                    priceEUR: 50,
+                    incomeRate: 25,
+                    traits: ['trait1', 'trait2']
+                }
+            ];
+
+            ui.renderBrainrotsList(container, brainrots, 'editBrainrot', 'deleteBrainrot');
+            
+            // Attendre que les filtres soient attachés
+            setTimeout(() => {
+                assert(container.innerHTML.includes('Brainrot 1'), 'Doit afficher le nom du brainrot');
+                assert(container.innerHTML.includes('Common'), 'Doit afficher la rareté');
+                assert(container.innerHTML.includes('trait1'), 'Doit afficher les traits');
+            }, 100);
+        });
+
+        addTest('integration-tests', 'Intégration - Rendu liste giveaways', () => {
+            const container = document.createElement('div');
+            const giveaways = [
+                {
+                    id: 1,
+                    prize: 'Test Prize',
+                    winners_count: 2,
+                    ended: false,
+                    participants: ['user1', 'user2']
+                }
+            ];
+
+            ui.renderGiveawaysList(container, giveaways, 'editGiveaway', 'deleteGiveaway');
+            assert(container.innerHTML.includes('Test Prize'), 'Doit afficher le prix');
+            assert(container.innerHTML.includes('2'), 'Doit afficher le nombre de gagnants');
+        });
+
+        addTest('integration-tests', 'Intégration - Rendu prix crypto', () => {
+            const container = document.createElement('div');
+            const prices = {
+                'BTC': { price_eur: 45000, price_usd: 50000 },
+                'ETH': { price_eur: 2500, price_usd: 2800 }
+            };
+
+            ui.renderCryptoPrices(container, prices);
+            assert(container.innerHTML.includes('BTC'), 'Doit afficher BTC');
+            assert(container.innerHTML.includes('ETH'), 'Doit afficher ETH');
+            assert(container.innerHTML.includes('45000'), 'Doit afficher le prix BTC');
+        });
+
+        // Lancer les tests au chargement
+        console.log('Tests lancés');
+    </script>
+</body>
+</html>

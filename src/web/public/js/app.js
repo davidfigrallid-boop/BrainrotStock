@@ -1,573 +1,563 @@
 /**
- * Application Panel Admin BrainrotsMarket
- * Gestion complète des brainrots et giveaways
+ * Application Frontend - BrainrotsMarket v3
+ * Gère l'interface utilisateur et les appels API
  */
 
-class AdminPanel {
-    constructor() {
-        this.currentServerId = null;
-        this.currentPage = 'dashboard';
-        this.apiToken = this.getApiToken();
-        this.init();
-    }
-
-    /**
-     * Initialise l'application
-     */
-    async init() {
-        this.setupEventListeners();
-        await this.checkApiStatus();
-        await this.loadServers();
-    }
-
-    /**
-     * Configure les écouteurs d'événements
-     */
-    setupEventListeners() {
-        // Navigation
-        document.querySelectorAll('.nav-item').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchPage(e.target.closest('.nav-item').dataset.page));
-        });
-
-        // Sélection du serveur
-        document.getElementById('server-select').addEventListener('change', (e) => {
-            this.currentServerId = e.target.value;
-            this.loadPageData();
-        });
-
-        // Brainrots
-        document.getElementById('btn-add-brainrot').addEventListener('click', () => this.openBrainrotModal());
-        document.getElementById('form-brainrot').addEventListener('submit', (e) => this.saveBrainrot(e));
-        document.getElementById('btn-modal-cancel').addEventListener('click', () => this.closeBrainrotModal());
-        document.querySelector('#modal-brainrot .modal-close').addEventListener('click', () => this.closeBrainrotModal());
-
-        // Giveaways
-        document.getElementById('btn-add-giveaway').addEventListener('click', () => this.openGiveawayModal());
-        document.getElementById('form-giveaway').addEventListener('submit', (e) => this.saveGiveaway(e));
-        document.getElementById('btn-modal-cancel-giveaway').addEventListener('click', () => this.closeGiveawayModal());
-        document.querySelector('#modal-giveaway .modal-close').addEventListener('click', () => this.closeGiveawayModal());
-
-        // Filtres
-        document.getElementById('filter-name').addEventListener('input', () => this.filterBrainrots());
-        document.getElementById('filter-rarity').addEventListener('change', () => this.filterBrainrots());
-        document.getElementById('filter-mutation').addEventListener('change', () => this.filterBrainrots());
-
-        // Tabs
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
-        });
-
-        // Crypto
-        document.getElementById('btn-convert').addEventListener('click', () => this.convertCrypto());
-        document.getElementById('btn-refresh-prices').addEventListener('click', () => this.loadCryptoPrices());
-    }
-
-    /**
-     * Récupère le token API
-     */
-    getApiToken() {
-        // En production, le token devrait être stocké de manière sécurisée
-        return localStorage.getItem('api_token') || '';
-    }
-
-    /**
-     * Effectue une requête API
-     */
-    async apiCall(endpoint, method = 'GET', data = null) {
-        const options = {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiToken}`
-            }
-        };
-
-        if (data) {
-            options.body = JSON.stringify(data);
-        }
-
-        try {
-            const response = await fetch(`/api${endpoint}`, options);
-            
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('API Error:', error);
-            this.showNotification('Erreur API', 'error');
-            throw error;
-        }
-    }
-
-    /**
-     * Vérifie l'état de l'API
-     */
-    async checkApiStatus() {
-        try {
-            const response = await fetch('/api/health');
-            if (response.ok) {
-                document.getElementById('api-status').classList.add('online');
-                document.getElementById('api-status-text').textContent = 'En ligne';
-            }
-        } catch (error) {
-            document.getElementById('api-status-text').textContent = 'Hors ligne';
-        }
-    }
-
-    /**
-     * Charge la liste des serveurs
-     */
-    async loadServers() {
-        try {
-            // Récupérer les serveurs depuis le bot (à implémenter dans l'API)
-            // Pour maintenant, on utilise un placeholder
-            const select = document.getElementById('server-select');
-            
-            // Exemple de serveurs (à remplacer par un appel API réel)
-            const servers = [
-                { id: '123456789', name: 'Mon Serveur' },
-                { id: '987654321', name: 'Serveur Test' }
-            ];
-
-            servers.forEach(server => {
-                const option = document.createElement('option');
-                option.value = server.id;
-                option.textContent = server.name;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Erreur chargement serveurs:', error);
-        }
-    }
-
-    /**
-     * Change de page
-     */
-    switchPage(page) {
-        // Mettre à jour la navigation
-        document.querySelectorAll('.nav-item').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-page="${page}"]`).classList.add('active');
-
-        // Mettre à jour la page
-        document.querySelectorAll('.page').forEach(p => {
-            p.classList.remove('active');
-        });
-        document.getElementById(`page-${page}`).classList.add('active');
-
-        // Mettre à jour le titre
-        const titles = {
-            dashboard: 'Dashboard',
-            brainrots: 'Gestion des Brainrots',
-            giveaways: 'Gestion des Giveaways',
-            crypto: 'Convertisseur Crypto',
-            settings: 'Paramètres'
-        };
-        document.getElementById('page-title').textContent = titles[page];
-
-        this.currentPage = page;
-        this.loadPageData();
-    }
-
-    /**
-     * Charge les données de la page actuelle
-     */
-    async loadPageData() {
-        if (!this.currentServerId) {
-            this.showNotification('Veuillez sélectionner un serveur', 'warning');
-            return;
-        }
-
-        switch (this.currentPage) {
-            case 'dashboard':
-                await this.loadDashboard();
-                break;
-            case 'brainrots':
-                await this.loadBrainrots();
-                break;
-            case 'giveaways':
-                await this.loadGiveaways();
-                break;
-            case 'crypto':
-                await this.loadCryptoPrices();
-                break;
-        }
-    }
-
-    /**
-     * Charge le dashboard
-     */
-    async loadDashboard() {
-        try {
-            const stats = await this.apiCall(`/stats/${this.currentServerId}`);
-            
-            document.getElementById('stat-total-brainrots').textContent = stats.data.totalBrainrots;
-            document.getElementById('stat-total-value').textContent = stats.data.totalValueFormatted;
-            document.getElementById('stat-unique-types').textContent = stats.data.uniqueTypes;
-            document.getElementById('stat-active-giveaways').textContent = stats.data.activeGiveaways;
-
-            // Afficher la répartition par rareté
-            const rarityChart = document.getElementById('rarity-chart');
-            rarityChart.innerHTML = '';
-            
-            for (const [rarity, count] of Object.entries(stats.data.byRarity)) {
-                const item = document.createElement('div');
-                item.className = 'rarity-item';
-                item.innerHTML = `
-                    <div class="rarity-item-name">${rarity}</div>
-                    <div class="rarity-item-count">${count}</div>
-                `;
-                rarityChart.appendChild(item);
-            }
-        } catch (error) {
-            console.error('Erreur chargement dashboard:', error);
-        }
-    }
-
-    /**
-     * Charge les brainrots
-     */
-    async loadBrainrots() {
-        try {
-            const response = await this.apiCall(`/brainrots/${this.currentServerId}`);
-            const brainrots = response.data;
-
-            const tbody = document.getElementById('brainrots-table-body');
-            tbody.innerHTML = '';
-
-            if (brainrots.length === 0) {
-                tbody.innerHTML = '<tr class="empty-state"><td colspan="7">Aucun brainrot</td></tr>';
-                return;
-            }
-
-            brainrots.forEach(br => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${br.name}</td>
-                    <td><span class="rarity-badge ${br.rarity.toLowerCase().replace(' ', '-')}">${br.rarity}</span></td>
-                    <td>${br.mutation}</td>
-                    <td>${this.formatPrice(br.price_eur)}</td>
-                    <td>${this.formatPrice(br.income_rate)}</td>
-                    <td>${br.quantite}</td>
-                    <td>
-                        <button class="btn btn-small" onclick="adminPanel.editBrainrot(${br.id})">✏️</button>
-                        <button class="btn btn-small btn-danger" onclick="adminPanel.deleteBrainrot(${br.id})">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        } catch (error) {
-            console.error('Erreur chargement brainrots:', error);
-        }
-    }
-
-    /**
-     * Filtre les brainrots
-     */
-    filterBrainrots() {
-        const name = document.getElementById('filter-name').value.toLowerCase();
-        const rarity = document.getElementById('filter-rarity').value;
-        const mutation = document.getElementById('filter-mutation').value;
-
-        document.querySelectorAll('#brainrots-table-body tr').forEach(row => {
-            if (row.classList.contains('empty-state')) return;
-
-            const cells = row.querySelectorAll('td');
-            const rowName = cells[0].textContent.toLowerCase();
-            const rowRarity = cells[1].textContent;
-            const rowMutation = cells[2].textContent;
-
-            const matchName = rowName.includes(name);
-            const matchRarity = !rarity || rowRarity.includes(rarity);
-            const matchMutation = !mutation || rowMutation.includes(mutation);
-
-            row.style.display = (matchName && matchRarity && matchMutation) ? '' : 'none';
-        });
-    }
-
-    /**
-     * Ouvre le modal d'ajout de brainrot
-     */
-    openBrainrotModal() {
-        document.getElementById('modal-title').textContent = 'Ajouter un Brainrot';
-        document.getElementById('form-brainrot').reset();
-        document.getElementById('modal-brainrot').classList.add('active');
-    }
-
-    /**
-     * Ferme le modal de brainrot
-     */
-    closeBrainrotModal() {
-        document.getElementById('modal-brainrot').classList.remove('active');
-    }
-
-    /**
-     * Sauvegarde un brainrot
-     */
-    async saveBrainrot(e) {
-        e.preventDefault();
-
-        const formData = new FormData(e.target);
-        const data = {
-            name: formData.get('name'),
-            rarity: formData.get('rarity'),
-            mutation: formData.get('mutation'),
-            priceEur: formData.get('priceEur'),
-            incomeRate: formData.get('incomeRate'),
-            compte: formData.get('compte'),
-            quantite: parseInt(formData.get('quantite')),
-            traits: formData.get('traits').split(',').map(t => t.trim()).filter(t => t)
-        };
-
-        try {
-            await this.apiCall(`/brainrots/${this.currentServerId}`, 'POST', data);
-            this.showNotification('Brainrot créé avec succès', 'success');
-            this.closeBrainrotModal();
-            await this.loadBrainrots();
-        } catch (error) {
-            console.error('Erreur sauvegarde brainrot:', error);
-        }
-    }
-
-    /**
-     * Supprime un brainrot
-     */
-    async deleteBrainrot(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce brainrot ?')) return;
-
-        try {
-            await this.apiCall(`/brainrots/${this.currentServerId}/${id}`, 'DELETE');
-            this.showNotification('Brainrot supprimé', 'success');
-            await this.loadBrainrots();
-        } catch (error) {
-            console.error('Erreur suppression brainrot:', error);
-        }
-    }
-
-    /**
-     * Charge les giveaways
-     */
-    async loadGiveaways() {
-        try {
-            const response = await this.apiCall(`/giveaways/${this.currentServerId}`);
-            const giveaways = response.data;
-
-            const active = giveaways.filter(g => !g.ended && g.end_time > Date.now());
-            const ended = giveaways.filter(g => g.ended);
-
-            this.displayGiveaways(active, 'active-giveaways');
-            this.displayGiveaways(ended, 'ended-giveaways');
-        } catch (error) {
-            console.error('Erreur chargement giveaways:', error);
-        }
-    }
-
-    /**
-     * Affiche les giveaways
-     */
-    displayGiveaways(giveaways, containerId) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-
-        if (giveaways.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #999;">Aucun giveaway</p>';
-            return;
-        }
-
-        giveaways.forEach(ga => {
-            const card = document.createElement('div');
-            card.className = 'giveaway-card';
-            card.innerHTML = `
-                <h4>🎁 ${ga.prize}</h4>
-                <div class="giveaway-info">
-                    <span>Gagnants: ${ga.winners_count}</span>
-                    <span>Participants: ${ga.participants?.length || 0}</span>
-                </div>
-                <div class="giveaway-actions">
-                    <button class="btn btn-small btn-primary" onclick="adminPanel.endGiveaway(${ga.id})">Terminer</button>
-                    <button class="btn btn-small" onclick="adminPanel.rerollGiveaway(${ga.id})">Reroll</button>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    }
-
-    /**
-     * Ouvre le modal de création de giveaway
-     */
-    openGiveawayModal() {
-        document.getElementById('form-giveaway').reset();
-        document.getElementById('modal-giveaway').classList.add('active');
-    }
-
-    /**
-     * Ferme le modal de giveaway
-     */
-    closeGiveawayModal() {
-        document.getElementById('modal-giveaway').classList.remove('active');
-    }
-
-    /**
-     * Sauvegarde un giveaway
-     */
-    async saveGiveaway(e) {
-        e.preventDefault();
-
-        const formData = new FormData(e.target);
-        const data = {
-            prize: formData.get('prize'),
-            duration: formData.get('duration'),
-            winnersCount: parseInt(formData.get('winnersCount')),
-            messageId: Date.now().toString(),
-            channelId: this.currentServerId,
-            endTime: Date.now() + this.parseDuration(formData.get('duration')) * 60 * 1000
-        };
-
-        try {
-            await this.apiCall(`/giveaways/${this.currentServerId}`, 'POST', data);
-            this.showNotification('Giveaway créé avec succès', 'success');
-            this.closeGiveawayModal();
-            await this.loadGiveaways();
-        } catch (error) {
-            console.error('Erreur sauvegarde giveaway:', error);
-        }
-    }
-
-    /**
-     * Parse une durée
-     */
-    parseDuration(durationStr) {
-        const match = /^(\d+)\s*(min|h|j|sem|m|an)$/.exec(durationStr.toLowerCase().trim());
-        if (!match) return 0;
-
-        const [, amount, unit] = match;
-        const multipliers = {
-            'min': 1,
-            'h': 60,
-            'j': 60 * 24,
-            'sem': 60 * 24 * 7,
-            'm': 60 * 24 * 30,
-            'an': 60 * 24 * 365
-        };
-
-        return parseInt(amount) * (multipliers[unit] || 1);
-    }
-
-    /**
-     * Termine un giveaway
-     */
-    async endGiveaway(id) {
-        try {
-            await this.apiCall(`/giveaways/${this.currentServerId}/${id}`, 'PUT', { ended: true });
-            this.showNotification('Giveaway terminé', 'success');
-            await this.loadGiveaways();
-        } catch (error) {
-            console.error('Erreur fin giveaway:', error);
-        }
-    }
-
-    /**
-     * Reroll les gagnants
-     */
-    async rerollGiveaway(id) {
-        try {
-            await this.apiCall(`/giveaways/${this.currentServerId}/${id}/reroll`, 'POST');
-            this.showNotification('Giveaway reroll', 'success');
-            await this.loadGiveaways();
-        } catch (error) {
-            console.error('Erreur reroll giveaway:', error);
-        }
-    }
-
-    /**
-     * Charge les prix crypto
-     */
-    async loadCryptoPrices() {
-        try {
-            const response = await this.apiCall('/crypto/prices');
-            const prices = response.data;
-
-            const grid = document.getElementById('prices-grid');
-            grid.innerHTML = '';
-
-            for (const [crypto, price] of Object.entries(prices)) {
-                const card = document.createElement('div');
-                card.className = 'price-card';
-                card.innerHTML = `
-                    <div class="price-card-name">${crypto}</div>
-                    <div class="price-card-value">€${price.toFixed(2)}</div>
-                `;
-                grid.appendChild(card);
-            }
-        } catch (error) {
-            console.error('Erreur chargement prix crypto:', error);
-        }
-    }
-
-    /**
-     * Convertit EUR en crypto
-     */
-    async convertCrypto() {
-        const amount = parseFloat(document.getElementById('eur-amount').value);
-        const crypto = document.getElementById('crypto-select').value;
-
-        if (!amount || amount <= 0) {
-            this.showNotification('Montant invalide', 'error');
-            return;
-        }
-
-        try {
-            const response = await this.apiCall('/crypto/convert', 'POST', {
-                amount,
-                crypto
-            });
-
-            const result = response.data;
-            const resultDiv = document.getElementById('conversion-result');
-            resultDiv.style.display = 'block';
-            resultDiv.querySelector('#result-text').textContent = 
-                `${amount} EUR = ${result.cryptoAmount.toFixed(8)} ${crypto}`;
-        } catch (error) {
-            console.error('Erreur conversion:', error);
-        }
-    }
-
-    /**
-     * Change d'onglet
-     */
-    switchTab(tab) {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.remove('active');
-        });
-        document.getElementById(`tab-${tab}`).classList.add('active');
-    }
-
-    /**
-     * Formate un prix
-     */
-    formatPrice(num) {
-        if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-        if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-        if (num >= 1e3) return (num / 1e3).toFixed(2) + 'k';
-        return num.toFixed(2);
-    }
-
-    /**
-     * Affiche une notification
-     */
-    showNotification(message, type = 'info') {
-        // Implémentation simple - à améliorer avec une vraie librairie
-        alert(message);
-    }
+// État de l'application
+const app = {
+  serverId: 'default',
+  authenticated: false,
+  brainrots: [],
+  giveaways: [],
+  cryptoPrices: {},
+  refreshInterval: null
+};
+
+/**
+ * Initialise l'authentification
+ */
+async function initAuth() {
+  const password = api.getPassword();
+  
+  if (!password) {
+    // Afficher un modal d'authentification
+    ui.showModal('Authentification', `
+      <form id="auth-form" class="form-row">
+        <div class="form-group">
+          <label>Mot de passe admin *</label>
+          <input type="password" id="auth-password" placeholder="Entrez le mot de passe" required autofocus>
+        </div>
+      </form>
+    `, [
+      {
+        label: 'Se connecter',
+        type: 'primary',
+        onclick: 'handleLogin()'
+      }
+    ]);
+    return false;
+  }
+
+  app.authenticated = true;
+  return true;
 }
 
-// Initialiser l'application
-const adminPanel = new AdminPanel();
+/**
+ * Gère la connexion
+ */
+async function handleLogin() {
+  const passwordInput = document.getElementById('auth-password');
+  const password = passwordInput?.value;
+
+  if (!password) {
+    ui.showNotification('Veuillez entrer un mot de passe', 'error');
+    return;
+  }
+
+  api.setPassword(password);
+  ui.closeModal();
+  app.authenticated = true;
+
+  // Charger les données
+  await loadAllData();
+}
+
+/**
+ * Gère la déconnexion
+ */
+function handleLogout() {
+  ui.confirm('Êtes-vous sûr de vouloir vous déconnecter?', 'logout()', '');
+}
+
+/**
+ * Déconnecte l'utilisateur
+ */
+function logout() {
+  api.clearAuth();
+  app.authenticated = false;
+  clearInterval(app.refreshInterval);
+  location.reload();
+}
+
+/**
+ * Charge toutes les données
+ */
+async function loadAllData() {
+  try {
+    ui.showNotification('Chargement des données...', 'info', 2000);
+    
+    await Promise.all([
+      loadDashboard(),
+      loadBrainrots(),
+      loadGiveaways(),
+      loadCryptoPrices()
+    ]);
+
+    ui.showNotification('Données chargées avec succès', 'success', 2000);
+  } catch (error) {
+    console.error('Erreur chargement données:', error);
+    ui.showNotification('Erreur lors du chargement des données', 'error');
+  }
+}
+
+/**
+ * Charge les statistiques du dashboard
+ */
+async function loadDashboard() {
+  try {
+    const stats = await api.getStats(app.serverId);
+    ui.updateStats(stats);
+    
+    // Charger les prix crypto pour le graphique
+    const prices = await api.getCryptoPrices();
+    
+    // Mettre à jour les graphiques
+    chartManager.updateCharts(stats, prices);
+  } catch (error) {
+    console.error('Erreur chargement dashboard:', error);
+  }
+}
+
+/**
+ * Charge la liste des brainrots
+ */
+async function loadBrainrots() {
+  try {
+    const container = document.getElementById('brainrots-list');
+    ui.showLoading(container);
+    
+    app.brainrots = await api.getBrainrots(app.serverId);
+    ui.renderBrainrotsList(container, app.brainrots, 'editBrainrot', 'deleteBrainrot');
+  } catch (error) {
+    console.error('Erreur chargement brainrots:', error);
+    ui.showError(document.getElementById('brainrots-list'), 'Erreur lors du chargement des brainrots');
+  }
+}
+
+/**
+ * Charge la liste des giveaways
+ */
+async function loadGiveaways() {
+  try {
+    const container = document.getElementById('giveaways-list');
+    ui.showLoading(container);
+    
+    app.giveaways = await api.getGiveaways(app.serverId);
+    ui.renderGiveawaysList(container, app.giveaways, 'editGiveaway', 'deleteGiveaway');
+  } catch (error) {
+    console.error('Erreur chargement giveaways:', error);
+    ui.showError(document.getElementById('giveaways-list'), 'Erreur lors du chargement des giveaways');
+  }
+}
+
+/**
+ * Charge les prix crypto
+ */
+async function loadCryptoPrices() {
+  try {
+    const container = document.getElementById('prices-list');
+    ui.showLoading(container);
+    
+    app.cryptoPrices = await api.getCryptoPrices();
+    ui.renderCryptoPrices(container, app.cryptoPrices);
+  } catch (error) {
+    console.error('Erreur chargement prix crypto:', error);
+    ui.showError(document.getElementById('prices-list'), 'Erreur lors du chargement des prix');
+  }
+}
+
+/**
+ * Ajoute un brainrot
+ */
+function addBrainrot() {
+  const form = ui.createBrainrotForm();
+  
+  ui.showModal('Ajouter un Brainrot', form, [
+    {
+      label: 'Annuler',
+      type: 'secondary',
+      onclick: 'ui.closeModal()'
+    },
+    {
+      label: 'Créer',
+      type: 'primary',
+      onclick: 'submitBrainrot()'
+    }
+  ]);
+}
+
+/**
+ * Soumet le formulaire de brainrot
+ */
+async function submitBrainrot() {
+  if (!ui.validateForm('brainrot-form')) {
+    ui.showNotification('Veuillez remplir tous les champs requis', 'error');
+    return;
+  }
+
+  const data = ui.getFormData('brainrot-form');
+
+  try {
+    // Trouver et désactiver le bouton de soumission
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+    }
+
+    await api.createBrainrot(app.serverId, data);
+    ui.closeModal();
+    ui.showNotification('Brainrot créé avec succès', 'success');
+    await loadBrainrots();
+    await loadDashboard();
+  } catch (error) {
+    console.error('Erreur création brainrot:', error);
+    ui.showNotification('Erreur lors de la création du brainrot: ' + error.message, 'error');
+  } finally {
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+    }
+  }
+}
+
+/**
+ * Édite un brainrot
+ */
+async function editBrainrot(id) {
+  try {
+    const brainrot = app.brainrots.find(b => b.id === id);
+    if (!brainrot) {
+      ui.showNotification('Brainrot non trouvé', 'error');
+      return;
+    }
+
+    const form = ui.createBrainrotForm(brainrot);
+    
+    ui.showModal('Modifier le Brainrot', form, [
+      {
+        label: 'Annuler',
+        type: 'secondary',
+        onclick: 'ui.closeModal()'
+      },
+      {
+        label: 'Mettre à jour',
+        type: 'primary',
+        onclick: `submitBrainrotUpdate(${id})`
+      }
+    ]);
+  } catch (error) {
+    console.error('Erreur édition brainrot:', error);
+    ui.showNotification('Erreur lors de l\'édition du brainrot', 'error');
+  }
+}
+
+/**
+ * Soumet la mise à jour d'un brainrot
+ */
+async function submitBrainrotUpdate(id) {
+  if (!ui.validateForm('brainrot-form')) {
+    ui.showNotification('Veuillez remplir tous les champs requis', 'error');
+    return;
+  }
+
+  const data = ui.getFormData('brainrot-form');
+
+  try {
+    // Trouver et désactiver le bouton de soumission
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+    }
+
+    await api.updateBrainrot(app.serverId, id, data);
+    ui.closeModal();
+    ui.showNotification('Brainrot mis à jour avec succès', 'success');
+    await loadBrainrots();
+    await loadDashboard();
+  } catch (error) {
+    console.error('Erreur mise à jour brainrot:', error);
+    ui.showNotification('Erreur lors de la mise à jour du brainrot: ' + error.message, 'error');
+  } finally {
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+    }
+  }
+}
+
+/**
+ * Supprime un brainrot
+ */
+async function deleteBrainrot(id) {
+  ui.confirm(
+    'Êtes-vous sûr de vouloir supprimer ce brainrot?',
+    `confirmDeleteBrainrot(${id})`,
+    ''
+  );
+}
+
+/**
+ * Confirme la suppression d'un brainrot
+ */
+async function confirmDeleteBrainrot(id) {
+  try {
+    await api.deleteBrainrot(app.serverId, id);
+    ui.showNotification('Brainrot supprimé avec succès', 'success');
+    await loadBrainrots();
+    await loadDashboard();
+  } catch (error) {
+    console.error('Erreur suppression brainrot:', error);
+    ui.showNotification('Erreur lors de la suppression du brainrot', 'error');
+  }
+}
+
+/**
+ * Ajoute un giveaway
+ */
+function addGiveaway() {
+  const form = ui.createGiveawayForm();
+  
+  ui.showModal('Créer un Giveaway', form, [
+    {
+      label: 'Annuler',
+      type: 'secondary',
+      onclick: 'ui.closeModal()'
+    },
+    {
+      label: 'Créer',
+      type: 'primary',
+      onclick: 'submitGiveaway(null)'
+    }
+  ]);
+}
+
+/**
+ * Soumet le formulaire de giveaway
+ */
+async function submitGiveaway(giveawayId = null) {
+  if (!ui.validateForm('giveaway-form')) {
+    ui.showNotification('Veuillez remplir tous les champs requis', 'error');
+    return;
+  }
+
+  const data = ui.getFormData('giveaway-form');
+
+  try {
+    // Trouver et désactiver le bouton de soumission
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+    }
+
+    if (giveawayId) {
+      await api.updateGiveaway(app.serverId, giveawayId, data);
+      ui.showNotification('Giveaway mis à jour avec succès', 'success');
+    } else {
+      await api.createGiveaway(app.serverId, data);
+      ui.showNotification('Giveaway créé avec succès', 'success');
+    }
+
+    ui.closeModal();
+    await loadGiveaways();
+    await loadDashboard();
+  } catch (error) {
+    console.error('Erreur giveaway:', error);
+    ui.showNotification('Erreur lors de l\'opération: ' + error.message, 'error');
+  } finally {
+    const submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+    }
+  }
+}
+
+/**
+ * Édite un giveaway
+ */
+async function editGiveaway(id) {
+  try {
+    const giveaway = app.giveaways.find(g => g.id === id);
+    if (!giveaway) {
+      ui.showNotification('Giveaway non trouvé', 'error');
+      return;
+    }
+
+    const form = ui.createGiveawayForm(giveaway);
+    
+    ui.showModal('Modifier le Giveaway', form, [
+      {
+        label: 'Annuler',
+        type: 'secondary',
+        onclick: 'ui.closeModal()'
+      },
+      {
+        label: 'Mettre à jour',
+        type: 'primary',
+        onclick: `submitGiveaway(${id})`
+      }
+    ]);
+  } catch (error) {
+    console.error('Erreur édition giveaway:', error);
+    ui.showNotification('Erreur lors de l\'édition du giveaway', 'error');
+  }
+}
+
+/**
+ * Supprime un giveaway
+ */
+async function deleteGiveaway(id) {
+  ui.confirm(
+    'Êtes-vous sûr de vouloir supprimer ce giveaway?',
+    `confirmDeleteGiveaway(${id})`,
+    ''
+  );
+}
+
+/**
+ * Confirme la suppression d'un giveaway
+ */
+async function confirmDeleteGiveaway(id) {
+  try {
+    await api.deleteGiveaway(app.serverId, id);
+    ui.showNotification('Giveaway supprimé avec succès', 'success');
+    await loadGiveaways();
+    await loadDashboard();
+  } catch (error) {
+    console.error('Erreur suppression giveaway:', error);
+    ui.showNotification('Erreur lors de la suppression du giveaway', 'error');
+  }
+}
+
+/**
+ * Convertit les cryptos
+ */
+async function convertCrypto() {
+  try {
+    const amount = parseFloat(document.getElementById('crypto-amount').value);
+    const from = document.getElementById('crypto-from').value;
+    const to = document.getElementById('crypto-to').value;
+
+    if (!amount || amount <= 0) {
+      ui.showNotification('Veuillez entrer un montant valide', 'error');
+      return;
+    }
+
+    if (from === to) {
+      ui.showNotification('Sélectionnez deux devises différentes', 'error');
+      return;
+    }
+
+    const result = await api.convertCrypto(amount, from, to);
+    
+    const resultDiv = document.getElementById('crypto-result');
+    const formattedAmount = amount.toFixed(from === 'EUR' ? 2 : 8);
+    const formattedResult = result.result.toFixed(to === 'EUR' ? 2 : 8);
+    resultDiv.innerHTML = `
+      <div class="conversion-result">
+        <p><strong>${formattedAmount} ${from}</strong> = <strong>${formattedResult} ${to}</strong></p>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;">
+          Taux: 1 ${from} = ${(result.result / amount).toFixed(8)} ${to}
+        </p>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Erreur conversion:', error);
+    ui.showNotification('Erreur lors de la conversion', 'error');
+  }
+}
+
+/**
+ * Rafraîchit les prix crypto
+ */
+async function refreshCryptoPrices() {
+  try {
+    const container = document.getElementById('prices-list');
+    const btn = document.getElementById('refresh-crypto-btn');
+    
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⟳ Rafraîchissement...';
+    }
+
+    app.cryptoPrices = await api.getCryptoPrices();
+    ui.renderCryptoPrices(container, app.cryptoPrices);
+    ui.showNotification('Prix crypto rafraîchis', 'success', 2000);
+  } catch (error) {
+    console.error('Erreur rafraîchissement prix crypto:', error);
+    ui.showNotification('Erreur lors du rafraîchissement des prix', 'error');
+  } finally {
+    const btn = document.getElementById('refresh-crypto-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '⟳ Rafraîchir';
+    }
+  }
+}
+
+/**
+ * Attache les event listeners
+ */
+function attachEventListeners() {
+  // Boutons d'ajout
+  document.getElementById('add-brainrot-btn')?.addEventListener('click', addBrainrot);
+  document.getElementById('add-giveaway-btn')?.addEventListener('click', addGiveaway);
+
+  // Conversion crypto
+  document.getElementById('convert-btn')?.addEventListener('click', convertCrypto);
+
+  // Rafraîchissement crypto
+  document.getElementById('refresh-crypto-btn')?.addEventListener('click', refreshCryptoPrices);
+
+  // Navigation
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      const section = document.querySelector(href);
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  });
+}
+
+/**
+ * Initialise l'application
+ */
+async function init() {
+  try {
+    // Initialiser les graphiques
+    chartManager.initChartDefaults();
+
+    // Vérifier l'authentification
+    const authenticated = await initAuth();
+    if (!authenticated) {
+      return;
+    }
+
+    // Attacher les event listeners
+    attachEventListeners();
+
+    // Charger les données initiales
+    await loadAllData();
+
+    // Rafraîchir les données toutes les 30 secondes
+    app.refreshInterval = setInterval(() => {
+      loadDashboard();
+      loadCryptoPrices();
+    }, 30000);
+
+  } catch (error) {
+    console.error('Erreur initialisation:', error);
+    ui.showNotification('Erreur lors de l\'initialisation de l\'application', 'error');
+  }
+}
+
+// Démarrer l'application au chargement
+document.addEventListener('DOMContentLoaded', init);
