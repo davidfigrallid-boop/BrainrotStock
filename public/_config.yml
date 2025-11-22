@@ -1,0 +1,14 @@
+# Configuration pour GitHub Pages
+# Désactiver Jekyll
+markdown: kramdown
+theme: null
+
+# Inclure les fichiers cachés
+include:
+  - .nojekyll
+
+# Exclure les fichiers inutiles
+exclude:
+  - README.md
+  - node_modules
+  - .git

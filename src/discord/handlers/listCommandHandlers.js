@@ -3,12 +3,160 @@
  * Handles category selection and pagination
  */
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const EmbedFormatter = require('../../core/formatters/EmbedFormatter');
+const BrainrotFormatter = require('../../core/formatters/BrainrotFormatter');
+const { RARITIES } = require('../../core/enums');
 const logger = require('../../core/logger');
 
 const ITEMS_PER_PAGE = 10;
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+// Rarity order for consistent display
+const RARITY_ORDER = ['OG', 'Secret', 'Brainrot God', 'Mythical', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
+
+// Rarity emojis
+const RARITY_EMOJIS = {
+  'Common': '⬜',
+  'Uncommon': '🟦',
+  'Rare': '🔵',
+  'Epic': '🟪',
+  'Legendary': '🟨',
+  'Mythical': '🟠',
+  'Brainrot God': '🌈',
+  'Secret': '⬛',
+  'OG': '⭐',
+};
+
+/**
+ * Aggregate identical brainrots and add quantity counter
+ * @param {Array} brainrots - Array of brainrot objects
+ * @returns {Array} Aggregated brainrots with quantity
+ */
+function aggregateBrainrots(brainrots) {
+  const aggregated = {};
+  
+  brainrots.forEach(brainrot => {
+    // Create a unique key based on name, rarity, mutations, traits, and compte
+    const traitsKey = (brainrot.traits || []).sort().join('|');
+    const key = `${brainrot.name}|${brainrot.rarity}|${brainrot.mutation}|${traitsKey}|${brainrot.compte || ''}`;
+    
+    if (!aggregated[key]) {
+      aggregated[key] = {
+        ...brainrot,
+        quantite: 1
+      };
+    } else {
+      aggregated[key].quantite += (brainrot.quantite || 1);
+    }
+  });
+  
+  return Object.values(aggregated);
+}
+
+/**
+ * Group brainrots by rarity
+ * @param {Array} brainrots - Array of brainrot objects
+ * @returns {Object} Brainrots grouped by rarity
+ */
+function groupByRarity(brainrots) {
+  const grouped = {};
+  
+  RARITY_ORDER.forEach(rarity => {
+    grouped[rarity] = [];
+  });
+  
+  brainrots.forEach(brainrot => {
+    const rarity = brainrot.rarity || 'Common';
+    if (!grouped[rarity]) {
+      grouped[rarity] = [];
+    }
+    grouped[rarity].push(brainrot);
+  });
+  
+  // Sort each rarity group alphabetically by name
+  Object.keys(grouped).forEach(rarity => {
+    grouped[rarity].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  });
+  
+  return grouped;
+}
+
+/**
+ * Format a single brainrot line for display
+ * @param {Object} brainrot - Brainrot object
+ * @returns {string} Formatted brainrot line
+ */
+function formatBrainrotLine(brainrot) {
+  let line = brainrot.name;
+  
+  // Add quantity if greater than 1
+  if (brainrot.quantite && brainrot.quantite > 1) {
+    line += ` x${brainrot.quantite}`;
+  }
+  
+  // Add mutation if not Default
+  if (brainrot.mutation && brainrot.mutation !== 'Default') {
+    line += ` [${brainrot.mutation}]`;
+  }
+  
+  // Add traits if present
+  if (brainrot.traits && brainrot.traits.length > 0) {
+    line += ` {${brainrot.traits.join(', ')}}`;
+  }
+  
+  // Add income and price info
+  line += '\n├ Income: ' + BrainrotFormatter.formatIncomeRate(brainrot.incomeRate || 0);
+  line += '\n├ Prix: ' + BrainrotFormatter.formatPrice(brainrot.priceEUR || 0);
+  
+  return line;
+}
+
+/**
+ * Build the list embed with all brainrots
+ * @param {Array} brainrots - Array of brainrot objects
+ * @returns {EmbedBuilder} Discord embed builder
+ */
+function buildListEmbed(brainrots) {
+  const embed = new EmbedBuilder()
+    .setColor('#f5e000')
+    .setFooter({ text: 'Brainrot Market [FR] | Refreshing in 5 min' })
+    .setTimestamp();
+  
+  if (!brainrots || brainrots.length === 0) {
+    embed.setTitle('🧠 Brainrot List');
+    embed.setDescription('Aucun brainrot enregistré');
+    return embed;
+  }
+  
+  // Aggregate identical brainrots
+  const aggregated = aggregateBrainrots(brainrots);
+  
+  // Group by rarity
+  const grouped = groupByRarity(aggregated);
+  
+  // Build description with all rarities
+  let description = '';
+  
+  RARITY_ORDER.forEach(rarity => {
+    const items = grouped[rarity];
+    if (!items || items.length === 0) return;
+    
+    const emoji = RARITY_EMOJIS[rarity] || '❓';
+    description += `\n# ${emoji} ${rarity}\n\n\`\`\`\n`;
+    
+    items.forEach(brainrot => {
+      description += formatBrainrotLine(brainrot) + '\n\n';
+    });
+    
+    description += '```\n';
+  });
+  
+  embed.setTitle('🧠 Brainrot List');
+  embed.setDescription(description || 'Aucun brainrot enregistré');
+  
+  return embed;
+}
 
 /**
  * Create pagination buttons
@@ -272,6 +420,10 @@ async function handlePrevButton(interaction) {
 }
 
 module.exports = {
+  aggregateBrainrots,
+  groupByRarity,
+  formatBrainrotLine,
+  buildListEmbed,
   handleRarityButton,
   handleMutationButton,
   handleTraitsButton,

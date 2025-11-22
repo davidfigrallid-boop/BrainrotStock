@@ -3,22 +3,22 @@
  * Commandes: list, addbrainrot, removebrainrot, updatebrainrot, addtrait, removetrait, showcompte, stats
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const brainrotService = require('../../services/brainrotService');
 const logger = require('../../core/logger');
 const { ValidationError, NotFoundError } = require('../../core/errors');
 const { MUTATIONS, isValidMutation, isValidTrait } = require('../../core/enums');
 const NumberParser = require('../../core/parsers/NumberParser');
+const { buildListEmbed } = require('../handlers/listCommandHandlers');
 
 /**
  * Commande /list - Affiche tous les brainrots avec interface améliorée
  */
-const EmbedFormatter = require('../../core/formatters/EmbedFormatter');
 
 const listCommand = {
   data: new SlashCommandBuilder()
     .setName('list')
-    .setDescription('Affiche tous les brainrots du serveur avec interface améliorée'),
+    .setDescription('Affiche tous les brainrots du serveur'),
   
   async execute(interaction) {
     try {
@@ -27,68 +27,12 @@ const listCommand = {
       const serverId = interaction.guildId;
       const brainrots = await brainrotService.getAll(serverId);
       
-      if (brainrots.length === 0) {
-        return await interaction.editReply({
-          content: '❌ Aucun brainrot trouvé sur ce serveur.'
-        });
-      }
-      
-      // Create main embed with category buttons
-      const mainEmbed = new EmbedBuilder()
-        .setColor('#7B2CBF')
-        .setTitle('🧠 Brainrots Shop')
-        .setDescription('Sélectionnez une catégorie pour voir les brainrots')
-        .addFields(
-          { name: '📊 Catégories disponibles', value: '• Rareté\n• Mutation\n• Traits\n• Prix\n• Revenue\n• Alphabétique', inline: false }
-        )
-        .setTimestamp();
-      
-      // Create category buttons
-      const categoryRow = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId('list_rarity')
-            .setLabel('Rareté')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('list_mutation')
-            .setLabel('Mutation')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('list_traits')
-            .setLabel('Traits')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('list_price')
-            .setLabel('Prix')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('list_revenue')
-            .setLabel('Revenue')
-            .setStyle(ButtonStyle.Primary)
-        );
-      
-      const alphabeticRow = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId('list_alphabetic')
-            .setLabel('Alphabétique')
-            .setStyle(ButtonStyle.Primary)
-        );
+      // Build and send the embed
+      const embed = buildListEmbed(brainrots);
       
       await interaction.editReply({ 
-        embeds: [mainEmbed],
-        components: [categoryRow, alphabeticRow]
+        embeds: [embed]
       });
-      
-      // Store brainrots in interaction for button handlers
-      interaction.client.listCache = interaction.client.listCache || {};
-      interaction.client.listCache[interaction.id] = {
-        brainrots,
-        serverId,
-        currentCategory: null,
-        currentPage: 0
-      };
       
     } catch (error) {
       logger.error('Erreur commande list:', error);

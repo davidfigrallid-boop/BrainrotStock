@@ -5,8 +5,10 @@
 
 const ready = require('./ready');
 const interactionCreate = require('./interactionCreate');
+const guildCreate = require('./guildCreate');
 
 module.exports = {
   ready,
-  interactionCreate
+  interactionCreate,
+  guildCreate
 };

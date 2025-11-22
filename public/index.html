@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainrotsMarket v3 - Panel Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar">
+            <div class="navbar-container">
+                <div class="navbar-brand">
+                    <h1>🧠 BrainrotsMarket v3</h1>
+                </div>
+                <ul class="navbar-menu">
+                    <li><a href="#dashboard" class="nav-link">Dashboard</a></li>
+                    <li><a href="#brainrots" class="nav-link">Brainrots</a></li>
+                    <li><a href="#giveaways" class="nav-link">Giveaways</a></li>
+                    <li><a href="#crypto" class="nav-link">Crypto</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <main class="container">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Brainrots</h3>
+                        <p class="stat-value" id="total-brainrots">-</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Valeur Totale</h3>
+                        <p class="stat-value" id="total-value">-</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Giveaways Actifs</h3>
+                        <p class="stat-value" id="active-giveaways">-</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Santé Système</h3>
+                        <p class="stat-value" id="system-health">-</p>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>Distribution par Rareté</h3>
+                        <canvas id="rarity-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Prix Crypto (EUR)</h3>
+                        <canvas id="crypto-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Brainrots Section -->
+            <section id="brainrots" class="section">
+                <h2>Gestion des Brainrots</h2>
+                <div class="section-content">
+                    <button class="btn btn-primary" id="add-brainrot-btn">+ Ajouter un Brainrot</button>
+                    <div id="brainrots-list" class="list-container">
+                        <p>Chargement...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Giveaways Section -->
+            <section id="giveaways" class="section">
+                <h2>Gestion des Giveaways</h2>
+                <div class="section-content">
+                    <button class="btn btn-primary" id="add-giveaway-btn">+ Créer un Giveaway</button>
+                    <div id="giveaways-list" class="list-container">
+                        <p>Chargement...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Crypto Section -->
+            <section id="crypto" class="section">
+                <h2>Conversion Crypto</h2>
+                <div class="section-content">
+                    <div class="crypto-converter">
+                        <div class="converter-form">
+                            <input type="number" id="crypto-amount" placeholder="Montant" min="0" step="0.01">
+                            <select id="crypto-from">
+                                <option value="EUR">EUR</option>
+                                <option value="BTC">BTC</option>
+                                <option value="ETH">ETH</option>
+                                <option value="SOL">SOL</option>
+                                <option value="USDT">USDT</option>
+                                <option value="LTC">LTC</option>
+                            </select>
+                            <span class="converter-arrow">→</span>
+                            <select id="crypto-to">
+                                <option value="BTC">BTC</option>
+                                <option value="ETH">ETH</option>
+                                <option value="SOL">SOL</option>
+                                <option value="USDT">USDT</option>
+                                <option value="LTC">LTC</option>
+                                <option value="EUR">EUR</option>
+                            </select>
+                            <button class="btn btn-secondary" id="convert-btn">Convertir</button>
+                        </div>
+                        <div id="crypto-result" class="crypto-result"></div>
+                    </div>
+                    <div id="crypto-prices" class="crypto-prices">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+                            <h3 style="margin: 0;">Prix Actuels</h3>
+                            <button class="btn btn-sm btn-secondary" id="refresh-crypto-btn">⟳ Rafraîchir</button>
+                        </div>
+                        <div id="prices-list" class="prices-grid">
+                            <p>Chargement des prix...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 BrainrotsMarket v3 - Tous droits réservés</p>
+        </footer>
+    </div>
+
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "BrainrotsMarket v3 - Panel Admin",
+  "description": "Panel d'administration web pour BrainrotsMarket v3",
+  "version": "3.0.0",
+  "author": "BrainrotsMarket Contributors",
+  "license": "MIT",
+  "repository": "https://github.com/votre-username/brainrotsmarket",
+  "homepage": "https://votre-username.github.io/brainrotsmarket/",
+  "github_pages": {
+    "enabled": true,
+    "branch": "main",
+    "folder": "/public",
+    "custom_domain": null
+  },
+  "features": [
+    "Dashboard avec statistiques",
+    "Gestion des Brainrots",
+    "Gestion des Giveaways",
+    "Convertisseur Crypto",
+    "Graphiques en temps réel",
+    "Authentification par mot de passe"
+  ],
+  "technologies": [
+    "HTML5",
+    "CSS3 (Dark Purple Theme)",
+    "JavaScript Vanilla",
+    "Chart.js",
+    "Fetch API"
+  ],
+  "api_endpoints": {
+    "brainrots": "/api/brainrots",
+    "giveaways": "/api/giveaways",
+    "crypto": "/api/crypto",
+    "stats": "/api/stats",
+    "health": "/api/health"
+  }
+}

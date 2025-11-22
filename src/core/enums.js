@@ -20,6 +20,22 @@ const RARITIES = {
 };
 
 /**
+ * Rarity emojis for Discord embeds
+ * @type {Object}
+ */
+const RARITY_EMOJIS = {
+  [RARITIES.COMMON]: '⬜',              // White square
+  [RARITIES.UNCOMMON]: '🟩',            // Green square
+  [RARITIES.RARE]: '🟦',                // Blue square
+  [RARITIES.EPIC]: '🟪',                // Purple square
+  [RARITIES.LEGENDARY]: '🟨',           // Yellow square
+  [RARITIES.MYTHICAL]: '🟧',            // Orange square
+  [RARITIES.BRAINROT_GOD]: '🌈',        // Rainbow
+  [RARITIES.SECRET]: '⬛',              // Black square
+  [RARITIES.OG]: '⭐',                  // Star
+};
+
+/**
  * Rarity colors for Discord embeds (hex format)
  * @type {Object}
  */
@@ -34,6 +50,22 @@ const RARITY_COLORS = {
   [RARITIES.SECRET]: '#000000',        // Black
   [RARITIES.OG]: '#FFD700',            // Gold
 };
+
+/**
+ * Rarity order for sorting in lists (from common to rare)
+ * @type {Array}
+ */
+const RARITY_ORDER = [
+  RARITIES.COMMON,
+  RARITIES.UNCOMMON,
+  RARITIES.RARE,
+  RARITIES.EPIC,
+  RARITIES.LEGENDARY,
+  RARITIES.MYTHICAL,
+  RARITIES.BRAINROT_GOD,
+  RARITIES.SECRET,
+  RARITIES.OG,
+];
 
 /**
  * Mutation types for brainrots (mandatory)
@@ -146,7 +178,9 @@ function getRarityColor(rarity) {
 
 module.exports = {
   RARITIES,
+  RARITY_EMOJIS,
   RARITY_COLORS,
+  RARITY_ORDER,
   MUTATIONS,
   AVAILABLE_TRAITS,
   isValidRarity,

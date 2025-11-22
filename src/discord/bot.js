@@ -54,6 +54,13 @@ class DiscordBot {
       logger.debug(`Événement enregistré: ${interactionEvent.name}`);
     }
 
+    // Charger et enregistrer l'événement guildCreate
+    if (events.guildCreate) {
+      const guildCreateEvent = events.guildCreate;
+      this.client.on(guildCreateEvent.name, (...args) => guildCreateEvent.execute(...args));
+      logger.debug(`Événement enregistré: ${guildCreateEvent.name}`);
+    }
+
     // Événement error - erreurs du client
     this.client.on('error', (error) => {
       logger.error('Erreur Discord client', error);

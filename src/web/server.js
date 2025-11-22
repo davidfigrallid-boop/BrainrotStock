@@ -28,8 +28,8 @@ class WebServer {
     // Sécurité - Headers HTTP
     this.app.use(helmet());
 
-    // Servir les fichiers statiques (AVANT rate limiting pour éviter de limiter les assets)
-    this.app.use(express.static(path.join(__dirname, 'public'), {
+    // Servir les fichiers statiques depuis la racine du projet (AVANT rate limiting pour éviter de limiter les assets)
+    this.app.use(express.static(path.join(__dirname, '..', '..', 'public'), {
       maxAge: '1d',
       etag: false
     }));
@@ -88,7 +88,7 @@ class WebServer {
 
     // Servir index.html pour les routes non-API (SPA)
     this.app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, 'public/index.html'));
+      res.sendFile(path.join(__dirname, '..', '..', 'public', 'index.html'));
     });
 
     // Catch-all pour les routes non trouvées
